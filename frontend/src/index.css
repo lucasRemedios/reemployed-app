@@ -1,88 +1,366 @@
-/* ── Reset & base ─────────────────────────────────────────────────────────── */
+/* ── Google Fonts ─────────────────────────────────────────────────────────── */
+/* Space Grotesk: geometric, distinctive — used for headings and the logo     */
+/* DM Sans: clean, readable at small sizes — used for all body text           */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap');
 
-/* box-sizing: border-box means padding/border are included in element width.
-   This is the modern default — avoids a lot of layout surprises. */
+/* ── Reset ────────────────────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+/* ── Design tokens ────────────────────────────────────────────────────────── */
 :root {
-  /* Design tokens — change these in one place to retheme the whole app */
-  --color-bg:        #0f1117;   /* near-black background */
-  --color-surface:   #1a1d27;   /* slightly lighter, for cards/panels */
-  --color-border:    #2e3147;   /* subtle borders */
-  --color-accent:    #6c63ff;   /* primary action colour (purple-blue) */
-  --color-accent-hover: #7d75ff;
-  --color-text:      #e8eaf0;   /* primary text */
-  --color-muted:     #7b7f9e;   /* secondary / placeholder text */
+  /* Palette — warm professional light theme */
+  --c-bg:           #F7F6F2;   /* warm off-white — feels like quality paper */
+  --c-surface:      #FFFFFF;   /* pure white for panels */
+  --c-border:       #E0DDD5;   /* warm gray hairlines */
+  --c-border-light: #EDEAE3;   /* subtler variant */
 
-  --font-display:    'Sora', sans-serif;    /* headings */
-  --font-body:       'Inter', sans-serif;   /* everything else */
+  --c-text:         #1C1C1A;   /* warm near-black */
+  --c-text-2:       #5C5B56;   /* secondary text */
+  --c-text-3:       #9B9890;   /* muted / placeholders */
 
-  --radius:          8px;
-  --transition:      160ms ease;
+  --c-accent:       #2A6049;   /* deep forest green — the one action colour */
+  --c-accent-hover: #1F4A38;   /* darker on hover */
+  --c-accent-light: #EAF2EE;   /* tint for chips/badges */
+
+  --c-warn:         #B45309;   /* amber — char limit warning */
+  --c-error:        #B91C1C;   /* red — over limit */
+
+  /* Typography */
+  --font-display:   'Space Grotesk', sans-serif;
+  --font-body:      'DM Sans', sans-serif;
+
+  /* Spacing */
+  --header-height:    72px;
+  --action-height:    72px;
+  --col-padding:      1.5rem;
+
+  /* Misc */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --transition: 140ms ease;
 }
 
+/* ── Base ─────────────────────────────────────────────────────────────────── */
 html, body, #root {
   height: 100%;
 }
 
 body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
+  background: var(--c-bg);
+  color: var(--c-text);
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
 /* ── App shell ────────────────────────────────────────────────────────────── */
 
+/* Three rows: header | workspace (grows) | action bar */
 .app-shell {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: var(--header-height) 1fr var(--action-height);
+  height: 100vh;
+  overflow: hidden;  /* each zone scrolls independently */
 }
 
+/* ── Header ───────────────────────────────────────────────────────────────── */
 .app-header {
-  padding: 2.5rem 3rem 2rem;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface);
+  display: flex;
+  align-items: center;
+}
+
+.app-header-inner {
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
 }
 
 .logo {
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: 1.35rem;
   font-weight: 700;
-  color: var(--color-text);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
+  color: var(--c-text);
+  line-height: 1;
 }
 
-/* The accent dot on the logo */
+/* The period after the logo uses the accent colour */
 .logo::after {
   content: '.';
-  color: var(--color-accent);
+  color: var(--c-accent);
 }
 
 .tagline {
-  margin-top: 0.35rem;
-  color: var(--color-muted);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  color: var(--c-text-3);
+  margin-top: 0.25rem;
+  font-style: italic;
 }
 
-.app-main {
-  flex: 1;
-  padding: 3rem;
+/* ── Workspace (three columns) ────────────────────────────────────────────── */
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  overflow: hidden;  /* columns scroll independently below */
+  /* Hairline separators via background on the grid + gap of 1px */
+  background: var(--c-border);
+  gap: 1px;
+}
+
+.workspace-column {
+  background: var(--c-surface);
   display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* The output column has a faint tint to distinguish it as "result" space */
+.workspace-column--output {
+  background: var(--c-bg);
+}
+
+/* ── Textarea field ───────────────────────────────────────────────────────── */
+.textarea-field {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--col-padding);
+  gap: 0.75rem;
+}
+
+.textarea-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+
+.column-label {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--c-text-2);
+}
+
+.column-hint {
+  font-size: 0.78rem;
+  color: var(--c-text-3);
+  margin-top: 0.2rem;
+}
+
+/* Character counter */
+.char-counter {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-3);
+  white-space: nowrap;
+  padding-top: 0.1rem;
+  transition: color var(--transition);
+}
+
+.char-counter[data-near="true"] {
+  color: var(--c-warn);
+}
+
+.char-counter[data-over="true"] {
+  color: var(--c-error);
+  font-weight: 600;
+}
+
+/* The textarea itself */
+.textarea {
+  flex: 1;              /* fills remaining column height */
+  width: 100%;
+  resize: none;         /* we control the size via the layout, not a drag handle */
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: var(--c-text);
+  caret-color: var(--c-accent);
+}
+
+.textarea::placeholder {
+  color: var(--c-text-3);
+  font-style: italic;
+}
+
+/* Subtle focus ring on the column (not the textarea itself, which has no border) */
+.workspace-column:focus-within {
+  box-shadow: inset 3px 0 0 var(--c-accent);
+}
+
+/* ── Resume column ────────────────────────────────────────────────────────── */
+.resume-column {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Empty state */
+.resume-column--empty {
   align-items: center;
   justify-content: center;
 }
 
-.placeholder-note {
-  color: var(--color-muted);
+.resume-empty-state {
+  text-align: center;
+  padding: 2rem;
+  max-width: 260px;
+}
+
+.resume-empty-icon {
+  font-size: 2rem;
+  color: var(--c-text-3);
+  display: block;
+  margin-bottom: 1rem;
+  line-height: 1;
+}
+
+.resume-empty-title {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--c-text-2);
+  margin-bottom: 0.5rem;
+}
+
+.resume-empty-hint {
+  font-size: 0.78rem;
+  color: var(--c-text-3);
+  line-height: 1.6;
+}
+
+/* Populated state */
+.resume-header {
+  padding: var(--col-padding) var(--col-padding) 0.75rem;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--c-border-light);
+}
+
+.resume-lines {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--col-padding);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Scrollbar styling — subtle, consistent */
+.resume-lines::-webkit-scrollbar { width: 4px; }
+.resume-lines::-webkit-scrollbar-track { background: transparent; }
+.resume-lines::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 2px; }
+
+.resume-section {}
+
+.resume-section-title {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-accent);
+  margin-bottom: 0.75rem;
+}
+
+.resume-line-item {
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid var(--c-border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.resume-line-item:last-child {
+  border-bottom: none;
+}
+
+.resume-line-text {
   font-size: 0.875rem;
-  border: 1px dashed var(--color-border);
-  padding: 1rem 1.5rem;
-  border-radius: var(--radius);
+  line-height: 1.65;
+  color: var(--c-text);
+}
+
+/* Reference chips — small tags showing "posting" and "background" provenance */
+.resume-line-refs {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.ref-chip {
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: default;
+  /* Title attribute shows full reference text on hover — see Phase 3 for rich UI */
+}
+
+.ref-chip--posting {
+  background: var(--c-accent-light);
+  color: var(--c-accent);
+}
+
+.ref-chip--background {
+  background: #EEF2FF;
+  color: #4338CA;  /* indigo — distinct from green, still professional */
+}
+
+/* ── Action bar ───────────────────────────────────────────────────────────── */
+.action-bar {
+  border-top: 1px solid var(--c-border);
+  background: var(--c-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2rem;
+}
+
+.tailor-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--c-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.65rem 2rem;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+
+.tailor-button:hover {
+  background: var(--c-accent-hover);
+}
+
+.tailor-button:active {
+  transform: scale(0.98);
+}
+
+.button-arrow {
+  font-size: 1rem;
+  transition: transform var(--transition);
+}
+
+.tailor-button:hover .button-arrow {
+  transform: translateX(3px);
 }
