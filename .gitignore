@@ -1,0 +1,15 @@
+# Dependencies — these are always regenerated from package.json via npm install
+node_modules/
+
+# Build output
+frontend/dist/
+backend/dist/
+
+# Environment variables — NEVER commit this; it contains API keys
+.env
+.env.local
+
+# Editor/OS noise
+.DS_Store
+*.swp
+.vscode/

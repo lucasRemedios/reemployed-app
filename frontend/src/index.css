@@ -1,0 +1,88 @@
+/* ── Reset & base ─────────────────────────────────────────────────────────── */
+
+/* box-sizing: border-box means padding/border are included in element width.
+   This is the modern default — avoids a lot of layout surprises. */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Design tokens — change these in one place to retheme the whole app */
+  --color-bg:        #0f1117;   /* near-black background */
+  --color-surface:   #1a1d27;   /* slightly lighter, for cards/panels */
+  --color-border:    #2e3147;   /* subtle borders */
+  --color-accent:    #6c63ff;   /* primary action colour (purple-blue) */
+  --color-accent-hover: #7d75ff;
+  --color-text:      #e8eaf0;   /* primary text */
+  --color-muted:     #7b7f9e;   /* secondary / placeholder text */
+
+  --font-display:    'Sora', sans-serif;    /* headings */
+  --font-body:       'Inter', sans-serif;   /* everything else */
+
+  --radius:          8px;
+  --transition:      160ms ease;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── App shell ────────────────────────────────────────────────────────────── */
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  padding: 2.5rem 3rem 2rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.logo {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+
+/* The accent dot on the logo */
+.logo::after {
+  content: '.';
+  color: var(--color-accent);
+}
+
+.tagline {
+  margin-top: 0.35rem;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.app-main {
+  flex: 1;
+  padding: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder-note {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  border: 1px dashed var(--color-border);
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius);
+}
