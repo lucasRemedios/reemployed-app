@@ -244,59 +244,168 @@ body {
   line-height: 1.6;
 }
 
-/* Populated state */
+/* ── Resume header + progress ─────────────────────────────────────────────── */
 .resume-header {
-  padding: var(--col-padding) var(--col-padding) 0.75rem;
+  padding: var(--col-padding) var(--col-padding) 0.875rem;
   flex-shrink: 0;
   border-bottom: 1px solid var(--c-border-light);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
+.resume-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.progress-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--c-text-3);
+  transition: color var(--transition);
+}
+
+.progress-label[data-done="true"] {
+  color: var(--c-accent);
+  font-weight: 600;
+}
+
+.progress-track {
+  height: 3px;
+  background: var(--c-border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--c-accent);
+  border-radius: 99px;
+  transition: width 300ms ease, background var(--transition);
+}
+
+.progress-fill[data-done="true"] {
+  background: var(--c-accent);
+}
+
+/* ── Resume lines scroll area ─────────────────────────────────────────────── */
 .resume-lines {
   flex: 1;
   overflow-y: auto;
   padding: var(--col-padding);
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
-/* Scrollbar styling — subtle, consistent */
 .resume-lines::-webkit-scrollbar { width: 4px; }
 .resume-lines::-webkit-scrollbar-track { background: transparent; }
 .resume-lines::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 2px; }
 
-.resume-section {}
-
-.resume-section-title {
-  font-family: var(--font-display);
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--c-accent);
-  margin-bottom: 0.75rem;
-}
-
-.resume-line-item {
-  padding-bottom: 0.875rem;
-  border-bottom: 1px solid var(--c-border-light);
+.resume-section {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 }
 
-.resume-line-item:last-child {
-  border-bottom: none;
+.resume-section-title {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-accent);
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--c-accent-light);
 }
 
-.resume-line-text {
+/* ── Line card ────────────────────────────────────────────────────────────── */
+.line-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-light);
+  border-radius: var(--radius-md);
+  padding: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+/* Approved state — green left accent + subtle tint */
+.line-card[data-approved="true"] {
+  border-color: #A7D4BE;
+  background: #F4FAF7;
+  border-left: 3px solid var(--c-accent);
+}
+
+/* Edit mode — slightly elevated */
+.line-card[data-editing="true"] {
+  border-color: var(--c-border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* ── Status badges ────────────────────────────────────────────────────────── */
+.line-badges {
+  display: flex;
+  gap: 0.35rem;
+  min-height: 0;  /* collapse when empty */
+}
+
+.line-badges:empty {
+  display: none;
+}
+
+.badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+}
+
+.badge--approved {
+  background: var(--c-accent-light);
+  color: var(--c-accent);
+}
+
+.badge--edited {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+/* ── Line text ────────────────────────────────────────────────────────────── */
+.line-text {
   font-size: 0.875rem;
   line-height: 1.65;
   color: var(--c-text);
 }
 
-/* Reference chips — small tags showing "posting" and "background" provenance */
-.resume-line-refs {
+/* ── Edit textarea ────────────────────────────────────────────────────────── */
+.line-edit-textarea {
+  width: 100%;
+  resize: none;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.625rem;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--c-text);
+  background: var(--c-bg);
+  caret-color: var(--c-accent);
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.line-edit-textarea:focus {
+  border-color: var(--c-accent);
+}
+
+/* ── Reference chips ──────────────────────────────────────────────────────── */
+.ref-chips {
   display: flex;
   gap: 0.4rem;
 }
@@ -305,10 +414,11 @@ body {
   font-size: 0.68rem;
   font-weight: 500;
   letter-spacing: 0.02em;
-  padding: 0.2rem 0.5rem;
+  padding: 0.2rem 0.55rem;
   border-radius: var(--radius-sm);
-  cursor: default;
-  /* Title attribute shows full reference text on hover — see Phase 3 for rich UI */
+  border: none;
+  cursor: pointer;
+  transition: opacity var(--transition), filter var(--transition);
 }
 
 .ref-chip--posting {
@@ -318,7 +428,114 @@ body {
 
 .ref-chip--background {
   background: #EEF2FF;
-  color: #4338CA;  /* indigo — distinct from green, still professional */
+  color: #4338CA;
+}
+
+.ref-chip[data-active="true"] {
+  filter: brightness(0.92);
+}
+
+.ref-chip:hover {
+  opacity: 0.8;
+}
+
+/* ── Reference panel ──────────────────────────────────────────────────────── */
+.ref-panel {
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ref-panel--posting {
+  background: var(--c-accent-light);
+  border-left: 2px solid var(--c-accent);
+}
+
+.ref-panel--background {
+  background: #EEF2FF;
+  border-left: 2px solid #4338CA;
+}
+
+.ref-panel-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-text-2);
+}
+
+.ref-panel-text {
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--c-text);
+}
+
+/* ── Line action row ──────────────────────────────────────────────────────── */
+.line-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.1rem;
+}
+
+.line-btn {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), opacity var(--transition);
+}
+
+.line-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Ghost — secondary action */
+.line-btn--ghost {
+  background: transparent;
+  color: var(--c-text-2);
+  border: 1px solid var(--c-border);
+}
+
+.line-btn--ghost:hover:not(:disabled) {
+  background: var(--c-bg);
+}
+
+/* Save — confirm edit */
+.line-btn--save {
+  background: var(--c-text);
+  color: #fff;
+}
+
+.line-btn--save:hover:not(:disabled) {
+  background: var(--c-accent);
+}
+
+/* Approve — main action */
+.line-btn--approve {
+  background: var(--c-accent-light);
+  color: var(--c-accent);
+  font-weight: 600;
+}
+
+.line-btn--approve:hover {
+  background: #D1E8DC;
+}
+
+/* Approved state — muted, already done */
+.line-btn--approve[data-approved="true"] {
+  background: var(--c-accent);
+  color: #fff;
+}
+
+.line-btn--approve[data-approved="true"]:hover {
+  background: var(--c-accent-hover);
 }
 
 /* ── Action bar ───────────────────────────────────────────────────────────── */
