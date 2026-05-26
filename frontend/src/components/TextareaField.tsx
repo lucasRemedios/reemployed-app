@@ -1,16 +1,8 @@
-// TextareaField.tsx — a labeled textarea with a live character counter.
+// TextareaField.tsx — a labeled textarea with a live word counter.
 //
-// This is a "controlled component" in React: the parent (App.tsx) owns the
-// value in its state. This component just displays it and calls onChange
-// when the user types. It never owns or mutates the data itself.
-//
-// Props:
-//   label       — column heading text
-//   hint        — smaller subtext below the label
-//   value       — current text (controlled by parent)
-//   onChange    — callback the parent provides to update its state
-//   placeholder — greyed-out text shown when the field is empty
-//   maxChars    — character limit; counter turns red when close
+// Word count is computed by splitting on whitespace and filtering empty tokens.
+// The limit is enforced by blocking onChange once the word count hits maxWords,
+// which prevents both typing and pasting past the limit.
 
 type TextareaFieldProps = {
   label: string
@@ -18,7 +10,12 @@ type TextareaFieldProps = {
   value: string
   onChange: (value: string) => void
   placeholder: string
-  maxChars: number
+  maxWords: number
+}
+
+// Count whitespace-separated words. Empty string → 0.
+function countWords(text: string): number {
+  return text.trim() === '' ? 0 : text.trim().split(/\s+/).length
 }
 
 export function TextareaField({
@@ -27,37 +24,43 @@ export function TextareaField({
   value,
   onChange,
   placeholder,
-  maxChars,
+  maxWords,
 }: TextareaFieldProps) {
-  const remaining = maxChars - value.length
-  const isNearLimit = remaining < maxChars * 0.1  // within 10% of limit
+  const wordCount   = countWords(value)
+  const remaining   = maxWords - wordCount
+  const isNearLimit = remaining < maxWords * 0.1  // within 10% of limit
   const isAtLimit   = remaining <= 0
+
+  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const next = e.target.value
+    // Allow the change only if it stays within the word limit.
+    // Exception: allow deletions even if currently over (so user can fix it).
+    if (countWords(next) <= maxWords || next.length < value.length) {
+      onChange(next)
+    }
+  }
 
   return (
     <div className="textarea-field">
-      {/* Column header */}
       <div className="textarea-header">
         <div>
           <h2 className="column-label">{label}</h2>
           <p className="column-hint">{hint}</p>
         </div>
-        {/* Character counter — colour shifts as limit approaches */}
         <span
           className="char-counter"
           data-near={isNearLimit}
           data-over={isAtLimit}
         >
-          {value.length.toLocaleString()} / {maxChars.toLocaleString()}
+          {wordCount.toLocaleString()} / {maxWords.toLocaleString()} words
         </span>
       </div>
 
-      {/* The textarea itself */}
       <textarea
         className="textarea"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={handleChange}
         placeholder={placeholder}
-        maxLength={maxChars}
         spellCheck={true}
       />
     </div>

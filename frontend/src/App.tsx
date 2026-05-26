@@ -14,9 +14,9 @@ import { TextareaField } from './components/TextareaField'
 import { ResumeColumn }  from './components/ResumeColumn'
 import { SAMPLE_LINES }  from './sampleData'
 
-// Character limits — defined once here so they're easy to tune.
-const MAX_JOB_CHARS        = 5_000
-const MAX_BACKGROUND_CHARS = 15_000
+// Word limits — enforced by counting whitespace-separated tokens.
+const MAX_JOB_WORDS        = 5_000
+const MAX_BACKGROUND_WORDS = 15_000
 
 export default function App() {
   // Controlled state for the two text inputs.
@@ -59,7 +59,7 @@ export default function App() {
             value={jobPosting}
             onChange={setJobPosting}
             placeholder="Paste the job posting here — the full text, not just the title. The more detail you include, the more precisely the resume can be tailored."
-            maxChars={MAX_JOB_CHARS}
+            maxWords={MAX_JOB_WORDS}
           />
         </section>
 
@@ -71,7 +71,7 @@ export default function App() {
             value={background}
             onChange={setBackground}
             placeholder="Write everything relevant: roles, projects, papers, outcomes, skills, context. This should be longer and richer than a one-page resume — the LLM will select and shape from it, not invent."
-            maxChars={MAX_BACKGROUND_CHARS}
+            maxWords={MAX_BACKGROUND_WORDS}
           />
         </section>
 
