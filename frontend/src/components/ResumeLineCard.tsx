@@ -1,48 +1,38 @@
-// ResumeLineCard.tsx — one resume line with edit, approve, and reference controls.
+// ResumeLineCard.tsx — a single resume line with edit/approve controls.
 //
-// State that lives HERE (local, not shared):
-//   expandedRef  — which reference panel is open ('posting' | 'background' | null)
-//   isEditing    — whether the text is in edit mode
-//   draftText    — the in-progress edit (discarded on Cancel, committed on Save)
+// Hover triggers onHoverStart/onHoverEnd in the parent chain, which
+// ultimately tells the left two columns what text to highlight.
 //
-// State that lives in APP (shared, passed down as props):
-//   line         — the ResumeLineItem data (text, references, approved, edited)
-//   onApprove    — toggles line.approved
-//   onSave       — commits an edited text, sets line.edited = true
+// Local state only:
+//   isEditing / draftText — edit-in-place flow
 
 import { useState } from 'react'
 import type { ResumeLineItem } from '../types'
 
-type ResumeLineCardProps = {
-  line: ResumeLineItem
-  onApprove: (id: string) => void
-  onSave:    (id: string, newText: string) => void
+type Props = {
+  line:         ResumeLineItem
+  onApprove:    (id: string) => void
+  onSave:       (id: string, newText: string) => void
+  onHoverStart: (line: ResumeLineItem) => void
+  onHoverEnd:   () => void
 }
 
-type ExpandedRef = 'posting' | 'background' | null
-
-export function ResumeLineCard({ line, onApprove, onSave }: ResumeLineCardProps) {
-  const [expandedRef, setExpandedRef] = useState<ExpandedRef>(null)
-  const [isEditing,   setIsEditing]   = useState(false)
-  const [draftText,   setDraftText]   = useState(line.text)
-
-  // Toggle a reference panel: clicking the same chip twice closes it.
-  function toggleRef(ref: 'posting' | 'background') {
-    setExpandedRef(prev => (prev === ref ? null : ref))
-  }
+export function ResumeLineCard({ line, onApprove, onSave, onHoverStart, onHoverEnd }: Props) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [draftText, setDraftText] = useState(line.text)
 
   function handleEdit() {
-    setDraftText(line.text)   // always start from the current saved text
+    setDraftText(line.text)
     setIsEditing(true)
   }
 
   function handleCancel() {
-    setDraftText(line.text)   // discard changes
+    setDraftText(line.text)
     setIsEditing(false)
   }
 
   function handleSave() {
-    if (draftText.trim() !== '' && draftText !== line.text) {
+    if (draftText.trim() && draftText !== line.text) {
       onSave(line.id, draftText.trim())
     }
     setIsEditing(false)
@@ -53,63 +43,23 @@ export function ResumeLineCard({ line, onApprove, onSave }: ResumeLineCardProps)
       className="line-card"
       data-approved={line.approved}
       data-editing={isEditing}
+      onMouseEnter={() => !isEditing && onHoverStart(line)}
+      onMouseLeave={() => !isEditing && onHoverEnd()}
     >
-      {/* ── Status badges ──────────────────────────────────────────────── */}
-      <div className="line-badges">
-        {line.approved && <span className="badge badge--approved">✓ Approved</span>}
-        {line.edited   && <span className="badge badge--edited">✎ Edited</span>}
-      </div>
-
-      {/* ── Line text / edit textarea ──────────────────────────────────── */}
+      {/* Text or edit textarea */}
       {isEditing ? (
         <textarea
           className="line-edit-textarea"
           value={draftText}
           onChange={e => setDraftText(e.target.value)}
           autoFocus
-          rows={Math.max(3, Math.ceil(draftText.length / 72))}
+          rows={Math.max(2, Math.ceil(draftText.length / 68))}
         />
       ) : (
         <p className="line-text">{line.text}</p>
       )}
 
-      {/* ── Reference chips ────────────────────────────────────────────── */}
-      {!isEditing && (
-        <div className="ref-chips">
-          <button
-            className="ref-chip ref-chip--posting"
-            data-active={expandedRef === 'posting'}
-            onClick={() => toggleRef('posting')}
-            title="Show job posting reference"
-          >
-            ⌖ Posting {expandedRef === 'posting' ? '▴' : '▾'}
-          </button>
-          <button
-            className="ref-chip ref-chip--background"
-            data-active={expandedRef === 'background'}
-            onClick={() => toggleRef('background')}
-            title="Show background reference"
-          >
-            ◈ Background {expandedRef === 'background' ? '▴' : '▾'}
-          </button>
-        </div>
-      )}
-
-      {/* ── Expanded reference panel ───────────────────────────────────── */}
-      {!isEditing && expandedRef === 'posting' && (
-        <div className="ref-panel ref-panel--posting">
-          <span className="ref-panel-label">From job posting</span>
-          <p className="ref-panel-text">{line.postingReference}</p>
-        </div>
-      )}
-      {!isEditing && expandedRef === 'background' && (
-        <div className="ref-panel ref-panel--background">
-          <span className="ref-panel-label">From your background</span>
-          <p className="ref-panel-text">{line.backgroundReference}</p>
-        </div>
-      )}
-
-      {/* ── Action row ─────────────────────────────────────────────────── */}
+      {/* Actions */}
       <div className="line-actions">
         {isEditing ? (
           <>
@@ -119,13 +69,14 @@ export function ResumeLineCard({ line, onApprove, onSave }: ResumeLineCardProps)
             <button
               className="line-btn line-btn--save"
               onClick={handleSave}
-              disabled={draftText.trim() === ''}
+              disabled={!draftText.trim()}
             >
               Save
             </button>
           </>
         ) : (
           <>
+            {line.edited && <span className="edited-mark" title="You edited this line">✎</span>}
             <button className="line-btn line-btn--ghost" onClick={handleEdit}>
               Edit
             </button>

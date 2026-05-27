@@ -1,64 +1,53 @@
-// App.tsx — root component and single source of truth for app state.
+// App.tsx — root component and single source of truth.
 //
-// State owned here:
-//   jobPosting    — left column text
-//   background    — middle column text
-//   resumeLines   — the array of ResumeLineItems (Phase 4: populated by LLM;
-//                   for now seeded with sample data)
-//
-// Handlers defined here and passed down as props:
-//   handleApprove — toggles a line's `approved` flag
-//   handleSave    — updates a line's text and sets `edited = true`
-//
-// Why here and not in ResumeColumn?
-// Because in Phase 4 we'll want to read the final approved lines to produce
-// the plain-text output. The data needs to live at the top level.
+// hoveredLine: when the user hovers a resume line card, we store it here.
+// The two TextareaFields read from it to know what text to highlight.
+// null = no hover active = no highlight shown.
 
-import { useState }       from 'react'
-import { TextareaField }  from './components/TextareaField'
-import { ResumeColumn }   from './components/ResumeColumn'
-import { SAMPLE_LINES }   from './sampleData'
+import { useState }        from 'react'
+import { TextareaField }   from './components/TextareaField'
+import { ResumeColumn }    from './components/ResumeColumn'
+import {
+  SAMPLE_JOB_POSTING,
+  SAMPLE_BACKGROUND,
+  SAMPLE_LINES,
+} from './sampleData'
 import type { ResumeLineItem } from './types'
 
 const MAX_JOB_WORDS        = 5_000
 const MAX_BACKGROUND_WORDS = 15_000
 
 export default function App() {
-  const [jobPosting,   setJobPosting]   = useState('')
-  const [background,   setBackground]   = useState('')
+  // Pre-populated with sample data so the hover UI is demonstrable immediately.
+  // Phase 4: these start empty; the user pastes their own content.
+  const [jobPosting,  setJobPosting]  = useState(SAMPLE_JOB_POSTING)
+  const [background,  setBackground]  = useState(SAMPLE_BACKGROUND)
+  const [resumeLines, setResumeLines] = useState<ResumeLineItem[]>(SAMPLE_LINES)
 
-  // Phase 4: replace SAMPLE_LINES with the real LLM output.
-  const [resumeLines,  setResumeLines]  = useState<ResumeLineItem[]>(SAMPLE_LINES)
+  // Which line card the user is currently hovering.
+  // Drives the highlight in the left two columns.
+  const [hoveredLine, setHoveredLine] = useState<ResumeLineItem | null>(null)
 
-  // Toggle approved on a single line by id.
-  // We never mutate state directly — we produce a new array with the one
-  // changed item. This is the standard React immutable-update pattern.
   function handleApprove(id: string) {
     setResumeLines(prev =>
-      prev.map(line =>
-        line.id === id ? { ...line, approved: !line.approved } : line
-      )
+      prev.map(line => line.id === id ? { ...line, approved: !line.approved } : line)
     )
   }
 
-  // Commit an edited text to a line and mark it as edited.
   function handleSave(id: string, newText: string) {
     setResumeLines(prev =>
-      prev.map(line =>
-        line.id === id ? { ...line, text: newText, edited: true } : line
-      )
+      prev.map(line => line.id === id ? { ...line, text: newText, edited: true } : line)
     )
   }
 
   function handleTailorClick() {
-    // Phase 4 will replace this with the real LLM pipeline.
+    // Phase 4: replace with real LLM pipeline.
     alert('LLM pipeline coming in Phase 4!')
   }
 
   return (
     <div className="app-shell">
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
       <header className="app-header">
         <div className="app-header-inner">
           <div>
@@ -70,42 +59,48 @@ export default function App() {
         </div>
       </header>
 
-      {/* ── Three-column workspace ───────────────────────────────────────── */}
       <main className="workspace">
 
+        {/* Left — job posting */}
         <section className="workspace-column">
           <TextareaField
             label="Job Posting"
             hint="Paste the full job description"
             value={jobPosting}
             onChange={setJobPosting}
-            placeholder="Paste the job posting here — the full text, not just the title. The more detail you include, the more precisely the resume can be tailored."
+            placeholder="Paste the full job posting here."
             maxWords={MAX_JOB_WORDS}
+            highlightText={hoveredLine?.postingReference}
+            highlightVariant="posting"
           />
         </section>
 
+        {/* Middle — candidate background */}
         <section className="workspace-column">
           <TextareaField
             label="Your Background"
             hint="More than a resume — your full story"
             value={background}
             onChange={setBackground}
-            placeholder="Write everything relevant: roles, projects, papers, outcomes, skills, context. This should be longer and richer than a one-page resume — the LLM will select and shape from it, not invent."
+            placeholder="Write everything relevant: roles, projects, papers, outcomes, skills."
             maxWords={MAX_BACKGROUND_WORDS}
+            highlightText={hoveredLine?.backgroundReference}
+            highlightVariant="background"
           />
         </section>
 
+        {/* Right — tailored resume */}
         <section className="workspace-column workspace-column--output">
           <ResumeColumn
             lines={resumeLines}
             onApprove={handleApprove}
             onSave={handleSave}
+            onLineHover={setHoveredLine}
           />
         </section>
 
       </main>
 
-      {/* ── Action bar ──────────────────────────────────────────────────── */}
       <footer className="action-bar">
         <button className="tailor-button" onClick={handleTailorClick}>
           Tailor Resume
