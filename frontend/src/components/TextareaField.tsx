@@ -133,10 +133,14 @@ export function TextareaField({
 
       {/* Wrapper: contains backdrop + textarea stacked on top of each other */}
       <div className="textarea-wrapper">
+        {/* Backdrop is only visible during an active highlight.
+            When hidden, the textarea renders its own text normally —
+            no double-layering, no scroll-sync drift. */}
         <div
           ref={backdropRef}
           className="textarea-backdrop"
           aria-hidden="true"
+          style={{ visibility: isHighlighting ? 'visible' : 'hidden' }}
           dangerouslySetInnerHTML={{ __html: backdropHtml }}
         />
         <textarea
