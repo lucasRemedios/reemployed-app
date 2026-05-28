@@ -13,10 +13,11 @@
 //   setHighlight(text: string | null) — show/clear highlight. Call freely.
 
 import { forwardRef, useImperativeHandle, useRef } from 'react'
-import { findBestMatch } from '../utils/matchText'
+import { findAllMatches } from '../utils/matchText'
+import type { TextSpan } from '../utils/matchText'
 
 export interface TextareaFieldHandle {
-  setHighlight: (text: string | null) => void
+  setHighlight: (references: string[] | null) => void
 }
 
 type TextareaFieldProps = {
@@ -57,14 +58,21 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;')
 }
 
-function buildHighlightedHtml(text: string, start: number, end: number, variant: string): string {
-  return (
-    escapeHtml(text.slice(0, start)) +
-    `<mark class="text-highlight text-highlight--${variant}">` +
-    escapeHtml(text.slice(start, end)) +
-    '</mark>' +
-    escapeHtml(text.slice(end))
-  )
+// Build backdrop HTML with a <mark> around each span.
+// Spans must already be sorted and non-overlapping (use mergeSpans first).
+function buildMultiHighlightHtml(text: string, spans: TextSpan[], variant: string): string {
+  if (spans.length === 0) return escapeHtml(text)
+  let html = ''
+  let pos  = 0
+  for (const { start, end } of spans) {
+    html += escapeHtml(text.slice(pos, start))
+    html += `<mark class="text-highlight text-highlight--${variant}">`
+    html += escapeHtml(text.slice(start, end))
+    html += '</mark>'
+    pos   = end
+  }
+  html += escapeHtml(text.slice(pos))
+  return html
 }
 
 export const TextareaField = forwardRef<TextareaFieldHandle, TextareaFieldProps>(
@@ -85,40 +93,36 @@ export const TextareaField = forwardRef<TextareaFieldHandle, TextareaFieldProps>
     // ── Imperative highlight API ─────────────────────────────────────────────
     // Called by the parent directly via ref — never causes a re-render here.
     useImperativeHandle(ref, () => ({
-      setHighlight(text: string | null) {
+      setHighlight(references: string[] | null) {
         const textarea = textareaRef.current
         const backdrop = backdropRef.current
         if (!textarea || !backdrop) return
 
-        if (!text) {
+        if (!references || references.length === 0) {
           backdrop.style.visibility = 'hidden'
           textarea.style.color = ''
           return
         }
 
-        // Find the best matching span — exact first, fuzzy fallback
-        const match = findBestMatch(valueRef.current, text)
-        if (!match) {
+        // Find the best-matching span for every reference, merge overlaps
+        const spans = findAllMatches(valueRef.current, references)
+        if (spans.length === 0) {
           backdrop.style.visibility = 'hidden'
           textarea.style.color = ''
           return
         }
 
-        backdrop.innerHTML = buildHighlightedHtml(
-          valueRef.current, match.start, match.end, highlightVariant,
-        )
+        backdrop.innerHTML = buildMultiHighlightHtml(valueRef.current, spans, highlightVariant)
         backdrop.style.visibility = 'visible'
         textarea.style.color = 'transparent'
 
-        // Scroll to center the highlighted span
+        // Scroll to the first highlight
         requestAnimationFrame(() => {
-          const mark = backdrop.querySelector('mark')
-          if (!mark) return
+          const firstMark = backdrop.querySelector('mark') as HTMLElement | null
+          if (!firstMark) return
           const scrollTo = Math.max(
             0,
-            (mark as HTMLElement).offsetTop -
-              backdrop.clientHeight / 2 +
-              (mark as HTMLElement).offsetHeight / 2,
+            firstMark.offsetTop - backdrop.clientHeight / 2 + firstMark.offsetHeight / 2,
           )
           backdrop.scrollTop = scrollTo
           textarea.scrollTop = scrollTo

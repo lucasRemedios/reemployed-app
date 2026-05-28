@@ -60,13 +60,13 @@ export type ResumeLineItem = {
   // Editable in place in the UI.
   text: string
 
-  // Which part of the job posting made this line relevant.
-  // e.g. "Job requires 'experience deploying ML models to production'"
-  postingReference: string
+  // All passages from the job posting that made this line relevant.
+  // Array because a single resume line may respond to several requirements.
+  postingReference: string[]
 
-  // Which part of the candidate's background this line is grounded in.
-  // e.g. "Candidate background: 'Deployed BERT-based classifier to AWS Lambda...'"
-  backgroundReference: string
+  // All passages from the candidate's background that ground this line.
+  // Array because a line may draw on multiple experiences or facts.
+  backgroundReference: string[]
 
   // Which section of the resume this line belongs to.
   // e.g. "Summary", "Experience", "Skills", "Education"

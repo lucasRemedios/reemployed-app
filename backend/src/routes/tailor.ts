@@ -46,11 +46,16 @@ function isPositioningStrategy(obj: unknown): obj is {
   )
 }
 
-// Validate Stage 2 output shape before trusting it
+// Validate Stage 2 output shape before trusting it.
+// postingReference and backgroundReference must be non-empty string arrays.
+function isStringArray(val: unknown): val is string[] {
+  return Array.isArray(val) && val.every(v => typeof v === 'string')
+}
+
 function isLineArray(obj: unknown): obj is Array<{
   text: string
-  postingReference: string
-  backgroundReference: string
+  postingReference: string[]
+  backgroundReference: string[]
   section?: string
 }> {
   if (!Array.isArray(obj)) return false
@@ -59,8 +64,8 @@ function isLineArray(obj: unknown): obj is Array<{
       typeof item === 'object' &&
       item !== null &&
       typeof (item as Record<string, unknown>).text === 'string' &&
-      typeof (item as Record<string, unknown>).postingReference === 'string' &&
-      typeof (item as Record<string, unknown>).backgroundReference === 'string'
+      isStringArray((item as Record<string, unknown>).postingReference) &&
+      isStringArray((item as Record<string, unknown>).backgroundReference)
   )
 }
 

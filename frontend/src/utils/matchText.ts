@@ -43,6 +43,36 @@ function score(chunkText: string, refTokenSet: Set<string>, refLen: number): num
   return overlap / refLen
 }
 
+// Merge a list of spans that may overlap or be adjacent into a minimal
+// sorted list of non-overlapping spans. Used when multiple references
+// match overlapping regions of the source text.
+export function mergeSpans(spans: TextSpan[]): TextSpan[] {
+  if (spans.length <= 1) return spans
+  const sorted = [...spans].sort((a, b) => a.start - b.start)
+  const merged: TextSpan[] = [{ ...sorted[0] }]
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1]
+    if (sorted[i].start <= last.end) {
+      last.end = Math.max(last.end, sorted[i].end)
+    } else {
+      merged.push({ ...sorted[i] })
+    }
+  }
+  return merged
+}
+
+// Run findBestMatch for every reference in the array, collect the results,
+// merge overlapping spans, and return the final list.
+// Returns [] if nothing matches (caller should treat this as "no highlight").
+export function findAllMatches(source: string, references: string[]): TextSpan[] {
+  const spans: TextSpan[] = []
+  for (const ref of references) {
+    const match = findBestMatch(source, ref)
+    if (match) spans.push(match)
+  }
+  return mergeSpans(spans)
+}
+
 export function findBestMatch(source: string, reference: string): TextSpan | null {
   if (!reference.trim() || !source.trim()) return null
 

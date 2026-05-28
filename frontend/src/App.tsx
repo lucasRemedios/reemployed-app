@@ -74,8 +74,8 @@ export default function App() {
 
       const rawLines = data.lines as Array<{
         text: string
-        postingReference: string
-        backgroundReference: string
+        postingReference: string[]
+        backgroundReference: string[]
         section?: string
       }>
 

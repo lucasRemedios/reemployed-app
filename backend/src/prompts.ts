@@ -52,8 +52,14 @@ Return a JSON object with exactly this structure:
   "lines": [
     {
       "text": "The tailored resume line. Concrete, specific, and directly relevant to the role.",
-      "postingReference": "Copy-paste a short verbatim excerpt from the job posting that this line addresses. Must be word-for-word from the posting.",
-      "backgroundReference": "Copy-paste a short verbatim excerpt from the background that grounds this line. Must be word-for-word from the background.",
+      "postingReference": [
+        "Verbatim excerpt from the job posting that this line addresses.",
+        "A second verbatim excerpt if this line responds to more than one requirement."
+      ],
+      "backgroundReference": [
+        "Verbatim excerpt from the background that grounds this line.",
+        "A second verbatim excerpt if this line draws on more than one experience or fact."
+      ],
       "section": "One of: Summary, Experience, Research, Education, Skills"
     }
   ]
@@ -61,11 +67,13 @@ Return a JSON object with exactly this structure:
 
 Rules:
 1. Only use information from the candidate's background. Do not invent anything.
-2. postingReference must be a verbatim substring copied from the job posting text — do not paraphrase.
-3. backgroundReference must be a verbatim substring copied from the background text — do not paraphrase.
-4. Include: 1 Summary line, 3–5 Experience bullets, relevant Research/Education/Skills lines.
-5. Make lines specific and concrete — avoid generic phrases like "strong communicator."
-6. Order lines logically: Summary → Experience → Research → Education → Skills.
+2. Every string in postingReference must be copied verbatim (word-for-word) from the job posting.
+3. Every string in backgroundReference must be copied verbatim (word-for-word) from the background.
+4. Include ALL posting requirements and background facts that contributed to each line — not just one.
+   A line that addresses two requirements should have two entries in postingReference.
+5. Include: 1 Summary line, 3–5 Experience bullets, relevant Research/Education/Skills lines.
+6. Make lines specific and concrete — avoid generic phrases like "strong communicator."
+7. Order lines logically: Summary → Experience → Research → Education → Skills.
 
 Return valid JSON only. No markdown, no explanation outside the JSON.`
 
