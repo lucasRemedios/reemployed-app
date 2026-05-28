@@ -32,6 +32,21 @@ function countWords(text: string): number {
   return text.trim() === '' ? 0 : text.trim().split(/\s+/).length
 }
 
+// Strip characters that cause backdrop/textarea rendering differences.
+// Called on paste so the text is clean from the moment it enters the field.
+//   - Tabs → two spaces (tab-width differs between div and textarea)
+//   - Windows/old-Mac line endings → \n
+//   - Non-breaking spaces → regular spaces
+//   - Zero-width characters (invisible, but can affect layout) → removed
+function cleanPastedText(raw: string): string {
+  return raw
+    .replace(/\r\n/g, '\n')          // Windows line endings
+    .replace(/\r/g, '\n')            // old Mac line endings
+    .replace(/\t/g, '  ')            // tabs → two spaces
+    .replace(/ /g, ' ')         // non-breaking space → space
+    .replace(/[​-‍﻿]/g, '') // zero-width characters → gone
+}
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -122,6 +137,25 @@ export const TextareaField = forwardRef<TextareaFieldHandle, TextareaFieldProps>
       }
     }
 
+    // Intercept paste to strip characters that cause backdrop/textarea
+    // rendering differences (tabs, non-breaking spaces, zero-width chars).
+    function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+      e.preventDefault()
+      const raw     = e.clipboardData.getData('text/plain')
+      const cleaned = cleanPastedText(raw)
+      const el      = e.currentTarget
+      const start   = el.selectionStart ?? 0
+      const end     = el.selectionEnd   ?? 0
+      const next    = value.slice(0, start) + cleaned + value.slice(end)
+      if (countWords(next) <= maxWords) {
+        onChange(next)
+        // Restore cursor position after React re-renders the new value
+        requestAnimationFrame(() => {
+          el.selectionStart = el.selectionEnd = start + cleaned.length
+        })
+      }
+    }
+
     const wordCount   = countWords(value)
     const remaining   = maxWords - wordCount
     const isNearLimit = remaining < maxWords * 0.1
@@ -159,6 +193,7 @@ export const TextareaField = forwardRef<TextareaFieldHandle, TextareaFieldProps>
             value={value}
             onChange={handleChange}
             onScroll={handleScroll}
+            onPaste={handlePaste}
             placeholder={placeholder}
             spellCheck={true}
             // No `style` prop here — so React will never reset the
