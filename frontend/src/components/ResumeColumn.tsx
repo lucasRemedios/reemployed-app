@@ -13,9 +13,6 @@ import { ResumeLineCard } from './ResumeLineCard'
 type Props = {
   lines:          ResumeLineItem[]
   estimatedPages: number            // 0 when nothing approved yet
-  name:           string            // Your Details — live preview + .docx header
-  contact:        string
-  links:          string
   onApprove:      (id: string) => void
   onSave:         (id: string, newText: string) => void
   onLineHover:    (line: ResumeLineItem | null) => void
@@ -43,7 +40,7 @@ function getEstimateText(pages: number, approvedCount: number): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function ResumeColumn({ lines, estimatedPages, name, contact, links, onApprove, onSave, onLineHover }: Props) {
+export function ResumeColumn({ lines, estimatedPages, onApprove, onSave, onLineHover }: Props) {
 
   if (lines.length === 0) {
     return (
@@ -101,18 +98,6 @@ export function ResumeColumn({ lines, estimatedPages, name, contact, links, onAp
       </div>
 
       <div className="resume-lines">
-
-        {/* Live candidate header — mirrors the Your Details inputs in real time.
-            Only rendered when at least one field is non-empty. */}
-        {(name || contact || links) && (
-          <div className="candidate-header">
-            {name    && <p className="candidate-name">{name}</p>}
-            {contact && <p className="candidate-contact">{contact}</p>}
-            {links   && <p className="candidate-links">{links}</p>}
-            <div className="candidate-rule" />
-          </div>
-        )}
-
         {groupBySection(lines).map(([section, sectionLines]) => (
           <div key={section} className="resume-section">
             <h3 className="resume-section-title">{section}</h3>

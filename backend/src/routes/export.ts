@@ -137,9 +137,19 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
     )
   }
 
-  // ── Group lines by section ──────────────────────────────────────────────────
+  // ── Extract Personal Details for the document header ───────────────────────
+  // Personal Details lines are the name/contact/links items the user approved.
+  // The first line is treated as the name, second as contact, third as links.
+  // Fall back to the body fields (name/contact/links) if none are present.
+  const personalLines = lines.filter(l => l.section === 'Personal Details').map(l => l.text)
+  const docName    = personalLines[0] ?? name
+  const docContact = personalLines[1] ?? contact
+  const docLinks   = personalLines[2] ?? links
+  const bodyLines  = lines.filter(l => l.section !== 'Personal Details')
+
+  // ── Group remaining lines by section ────────────────────────────────────────
   const grouped = new Map<string, string[]>()
-  for (const line of lines) {
+  for (const line of bodyLines) {
     const section = line.section ?? 'Other'
     if (!grouped.has(section)) grouped.set(section, [])
     grouped.get(section)!.push(line.text)
@@ -176,27 +186,27 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
   const children: Paragraph[] = []
 
   // — Name header (18pt, always fixed — not affected by body scaling)
-  if (name.trim()) {
+  if (docName.trim()) {
     children.push(new Paragraph({
-      children: [new TextRun({ text: name.trim(), bold: true, size: 36, font: BODY_FONT })],
+      children: [new TextRun({ text: docName.trim(), bold: true, size: 36, font: BODY_FONT })],
       alignment: AlignmentType.CENTER,
       spacing:   { before: 0, after: 40 },
     }))
   }
 
   // — Contact line (10pt, muted — fixed size)
-  if (contact.trim()) {
+  if (docContact.trim()) {
     children.push(new Paragraph({
-      children: [new TextRun({ text: contact.trim(), size: 20, color: '666666', font: BODY_FONT })],
+      children: [new TextRun({ text: docContact.trim(), size: 20, color: '666666', font: BODY_FONT })],
       alignment: AlignmentType.CENTER,
       spacing:   { before: 0, after: 80 },
     }))
   }
 
   // — Links line (fixed size)
-  if (links.trim()) {
+  if (docLinks.trim()) {
     children.push(new Paragraph({
-      children: [new TextRun({ text: links.trim(), size: 20, color: '666666', font: BODY_FONT })],
+      children: [new TextRun({ text: docLinks.trim(), size: 20, color: '666666', font: BODY_FONT })],
       alignment: AlignmentType.CENTER,
       spacing:   { before: 0, after: 160 },
     }))
@@ -242,7 +252,7 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
     }
   }
 
-  // — Any sections not in SECTION_ORDER (edge case)
+  // — Any remaining sections not in SECTION_ORDER (edge case)
   for (const [section, sectionLines] of grouped) {
     if (SECTION_ORDER.includes(section)) continue
     children.push(sectionHeader(section, bodySize))

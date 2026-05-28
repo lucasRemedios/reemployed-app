@@ -19,6 +19,21 @@ import {
 } from './sampleData'
 import type { ResumeLineItem, AppStatus, CandidateHeader } from './types'
 
+// Helper: turn the LLM-extracted header into regular line items so they get
+// the same edit/approve treatment as every other resume line.
+function headerToLines(h: CandidateHeader): ResumeLineItem[] {
+  const items: ResumeLineItem[] = []
+  const make = (id: string, text: string): ResumeLineItem => ({
+    id, text, section: 'Personal Details',
+    postingReference: [], backgroundReference: [],
+    approved: false, edited: false,
+  })
+  if (h.name?.trim())    items.push(make('pd-name',    h.name.trim()))
+  if (h.contact?.trim()) items.push(make('pd-contact', h.contact.trim()))
+  if (h.links?.trim())   items.push(make('pd-links',   h.links.trim()))
+  return items
+}
+
 const MAX_JOB_WORDS        = 5_000
 const MAX_BACKGROUND_WORDS = 15_000
 
@@ -31,9 +46,7 @@ export default function App() {
   const [resumeLines, setResumeLines] = useState<ResumeLineItem[]>(SAMPLE_LINES)
   const [status,      setStatus]      = useState<AppStatus>({ kind: 'idle' })
 
-  const [downloadStatus,   setDownloadStatus]   = useState<DownloadStatus>('idle')
-  // Candidate header extracted by the LLM from the background text
-  const [candidateHeader, setCandidateHeader] = useState<CandidateHeader>({ name: '', contact: '', links: '' })
+  const [downloadStatus, setDownloadStatus] = useState<DownloadStatus>('idle')
 
   // Refs to the two textarea fields — used to push highlight updates
   // directly into the DOM without going through React state/props.
@@ -68,10 +81,9 @@ export default function App() {
       return
     }
 
-    // Clear any active highlights and previous header before loading
+    // Clear any active highlights before loading
     jobPostingFieldRef.current?.setHighlight(null)
     backgroundFieldRef.current?.setHighlight(null)
-    setCandidateHeader({ name: '', contact: '', links: '' })
     setStatus({ kind: 'loading', stage: 1 })
 
     try {
@@ -104,11 +116,11 @@ export default function App() {
         edited:              false,
       }))
 
-      // Extract candidate header returned by the LLM
+      // Convert extracted header into Personal Details line items and prepend
       const header = data.candidateHeader as CandidateHeader | undefined
-      if (header) setCandidateHeader(header)
+      const allLines = header ? [...headerToLines(header), ...lines] : lines
 
-      setResumeLines(lines)
+      setResumeLines(allLines)
       setStatus({ kind: 'done' })
 
     } catch (err) {
@@ -130,10 +142,10 @@ export default function App() {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          name:           candidateHeader.name,
-          contact:        candidateHeader.contact,
-          links:          candidateHeader.links,
-          lines:          approvedLines,
+          name:    '',   // Personal Details are inside the lines array now
+          contact: '',
+          links:   '',
+          lines:   approvedLines,
           estimatedPages,
         }),
       })
@@ -222,9 +234,6 @@ export default function App() {
           <ResumeColumn
             lines={resumeLines}
             estimatedPages={estimatedPages}
-            name={candidateHeader.name}
-            contact={candidateHeader.contact}
-            links={candidateHeader.links}
             onApprove={(id) =>
               setResumeLines(prev =>
                 prev.map(l => l.id === id ? { ...l, approved: !l.approved } : l)
