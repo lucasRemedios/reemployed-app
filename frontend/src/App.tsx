@@ -21,11 +21,21 @@ import type { ResumeLineItem, AppStatus } from './types'
 const MAX_JOB_WORDS        = 5_000
 const MAX_BACKGROUND_WORDS = 15_000
 
+// Download button has its own mini-state machine separate from the tailor status
+type DownloadStatus = 'idle' | 'loading' | 'success'
+
 export default function App() {
   const [jobPosting,  setJobPosting]  = useState(SAMPLE_JOB_POSTING)
   const [background,  setBackground]  = useState(SAMPLE_BACKGROUND)
   const [resumeLines, setResumeLines] = useState<ResumeLineItem[]>(SAMPLE_LINES)
   const [status,      setStatus]      = useState<AppStatus>({ kind: 'idle' })
+
+  // User identity fields — used when generating the .docx header
+  const [userName,    setUserName]    = useState('')
+  const [userContact, setUserContact] = useState('')
+  const [userLinks,   setUserLinks]   = useState('')
+
+  const [downloadStatus, setDownloadStatus] = useState<DownloadStatus>('idle')
 
   // Refs to the two textarea fields — used to push highlight updates
   // directly into the DOM without going through React state/props.
@@ -39,7 +49,8 @@ export default function App() {
     backgroundFieldRef.current?.setHighlight(line?.backgroundReference ?? null)
   }
 
-  const isLoading = status.kind === 'loading'
+  const isLoading    = status.kind === 'loading'
+  const approvedCount = resumeLines.filter(l => l.approved).length
 
   function validateInputs(): string | null {
     if (!jobPosting.trim())  return 'Please paste a job posting before tailoring.'
@@ -98,17 +109,92 @@ export default function App() {
     }
   }
 
+  // Collect approved lines, POST to /api/export, receive the binary .docx,
+  // and trigger a browser download — no page navigation, no new tab.
+  async function handleDownloadClick() {
+    const approvedLines = resumeLines.filter(l => l.approved)
+    if (!approvedLines.length) return
+
+    setDownloadStatus('loading')
+
+    try {
+      const response = await fetch('/api/export', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          name:    userName,
+          contact: userContact,
+          links:   userLinks,
+          lines:   approvedLines,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Export failed — please try again.')
+      }
+
+      // Receive binary blob and trigger download via a temporary anchor element
+      const blob      = await response.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const anchor    = document.createElement('a')
+      anchor.href     = objectUrl
+      anchor.download = 'resume_tailored.docx'
+      anchor.click()
+      URL.revokeObjectURL(objectUrl)
+
+      setDownloadStatus('success')
+      // Flash "Downloaded ✓" for 2 seconds then return to idle
+      setTimeout(() => setDownloadStatus('idle'), 2000)
+
+    } catch (err) {
+      console.error('[export]', err)
+      setDownloadStatus('idle')
+    }
+  }
+
+  // Download button label and disabled logic
+  const downloadDisabled = approvedCount === 0 || downloadStatus === 'loading'
+  const downloadLabel =
+    downloadStatus === 'loading' ? 'Downloading…' :
+    downloadStatus === 'success' ? 'Downloaded ✓' :
+    'Download Resume'
+
   return (
     <div className="app-shell">
 
       <header className="app-header">
         <div className="app-header-inner">
-          <div>
+
+          {/* Left: logo + tagline */}
+          <div className="app-header-brand">
             <h1 className="logo">ReEmployed</h1>
             <p className="tagline">
               Paste a job. Get a resume grounded in what you've actually done.
             </p>
           </div>
+
+          {/* Right: compact identity inputs — used when generating the .docx header */}
+          <div className="user-details">
+            <input
+              className="user-detail-input"
+              placeholder="Your full name"
+              value={userName}
+              onChange={e => setUserName(e.target.value)}
+            />
+            <input
+              className="user-detail-input"
+              placeholder="email · phone · location"
+              value={userContact}
+              onChange={e => setUserContact(e.target.value)}
+            />
+            <input
+              className="user-detail-input"
+              placeholder="linkedin.com/in/you · github.com/you"
+              value={userLinks}
+              onChange={e => setUserLinks(e.target.value)}
+            />
+          </div>
+
         </div>
       </header>
 
@@ -163,6 +249,7 @@ export default function App() {
         {status.kind === 'error' && (
           <p className="action-error">{status.message}</p>
         )}
+
         <button
           className="tailor-button"
           onClick={handleTailorClick}
@@ -172,6 +259,21 @@ export default function App() {
           {isLoading ? 'Tailoring your resume…' : 'Tailor Resume'}
           {!isLoading && <span className="button-arrow" aria-hidden>→</span>}
         </button>
+
+        {/* Download button + caption — disabled until at least one line is approved */}
+        <div className="download-group">
+          <button
+            className="download-button"
+            onClick={handleDownloadClick}
+            disabled={downloadDisabled}
+            data-success={downloadStatus === 'success'}
+            title={approvedCount === 0 ? 'Approve lines to download' : undefined}
+          >
+            {downloadLabel}
+          </button>
+          <span className="download-caption">Editable · No macros</span>
+        </div>
+
       </footer>
 
     </div>

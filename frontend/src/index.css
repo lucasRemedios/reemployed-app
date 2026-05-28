@@ -78,9 +78,15 @@ body {
 
 .app-header-inner {
   padding: 0 2rem;
+  width: 100%;          /* stretch so user-details can push to the right */
   display: flex;
   align-items: center;
   gap: 2rem;
+}
+
+/* Brand block: logo + tagline stacked */
+.app-header-brand {
+  flex-shrink: 0;
 }
 
 .logo {
@@ -103,6 +109,43 @@ body {
   color: var(--c-text-3);
   margin-top: 0.25rem;
   font-style: italic;
+}
+
+/* ── User details inputs ──────────────────────────────────────────────────── */
+/* Compact identity row in the header: full name / contact / links.
+   These populate the .docx header when the user downloads. */
+.user-details {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;                /* fill remaining header width */
+  max-width: 580px;
+  margin-left: auto;      /* push to the right */
+}
+
+.user-detail-input {
+  flex: 1;
+  min-width: 0;           /* allow flex children to shrink below content width */
+  height: 30px;
+  padding: 0 0.65rem;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  color: var(--c-text);
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.user-detail-input::placeholder {
+  color: var(--c-text-3);
+  font-style: italic;
+}
+
+.user-detail-input:focus {
+  border-color: var(--c-accent);
+  box-shadow: 0 0 0 2px rgba(42, 96, 73, 0.12);
+  background: var(--c-surface);
 }
 
 /* ── Workspace (three columns) ────────────────────────────────────────────── */
@@ -617,4 +660,63 @@ body {
 
 .tailor-button:hover .button-arrow {
   transform: translateX(3px);
+}
+
+/* ── Download button ──────────────────────────────────────────────────────── */
+/* Wraps the button and the "Editable · No macros" caption below it */
+.download-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.22rem;
+}
+
+/* Secondary outlined button — same height/radius as tailor-button, no fill at rest */
+.download-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: var(--c-accent);
+  border: 1.5px solid var(--c-accent);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 1.5rem;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--transition),
+    color var(--transition),
+    border-color var(--transition),
+    transform var(--transition),
+    opacity var(--transition);
+}
+
+.download-button:hover:not(:disabled) {
+  background: var(--c-accent-light);
+}
+
+.download-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Disabled: no approved lines yet */
+.download-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* "Downloaded ✓" flash — keep the same green but filled briefly */
+.download-button[data-success="true"] {
+  background: var(--c-accent-light);
+}
+
+/* Small muted caption below the button */
+.download-caption {
+  font-size: 0.7rem;
+  color: var(--c-text-3);
+  letter-spacing: 0.01em;
 }

@@ -3,7 +3,8 @@
 import express    from 'express'
 import cors       from 'cors'
 import dotenv     from 'dotenv'
-import { tailorHandler } from './routes/tailor'
+import { tailorHandler }  from './routes/tailor'
+import { exportHandler }  from './routes/export'
 
 // Path is relative to process.cwd(), which is the `backend/` folder when
 // you run `npm run dev` from there. So `../.env` = project root `.env`.
@@ -22,7 +23,10 @@ app.get('/health', (_req, res) => {
 })
 
 // Main pipeline: job posting + background → tailored resume
-app.post('/api/tailor', tailorHandler)
+app.post('/api/tailor',  tailorHandler)
+
+// Export: approved lines → .docx file download
+app.post('/api/export',  exportHandler)
 
 // ── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
