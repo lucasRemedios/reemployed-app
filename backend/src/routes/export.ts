@@ -1,7 +1,12 @@
 // routes/export.ts — generates a .docx file from approved resume lines.
 //
-// Accepts a POST with { name, contact, links, lines[] } and returns a binary
-// .docx file ready for download.
+// Accepts a POST with { name, contact, links, lines[], estimatedPages? }
+// and returns a binary .docx file ready for download.
+//
+// Font scaling safety net:
+//   If estimatedPages > 1.05, body text is reduced from 11pt in 0.5pt steps
+//   down to a minimum of 10pt until the scaled estimate fits within one page.
+//   The name/contact/links header and section header sizes are never changed.
 //
 // Critical docx rules enforced here:
 //   • NEVER \n in text — each logical line is a separate Paragraph
@@ -34,15 +39,24 @@ const BULLET_SECTIONS = new Set([
   'Experience', 'Research', 'Publications', 'Teaching', 'Leadership', 'Projects',
 ])
 
+// ── Font size constants ───────────────────────────────────────────────────────
+// All sizes are in half-points (Word's internal unit: 22 = 11pt, 20 = 10pt).
+// Only BODY_SIZE_DEFAULT is ever scaled; the header sizes stay fixed.
+
+const BODY_FONT         = 'Calibri'
+const BODY_SIZE_DEFAULT = 22   // 11pt — normal body text
+const BODY_SIZE_MIN     = 20   // 10pt — minimum allowed when scaling for overflow
+
 // ── Input shape ───────────────────────────────────────────────────────────────
 
 type ExportLine = { text: string; section?: string }
 
 type ExportBody = {
-  name:    string
-  contact: string
-  links:   string
-  lines:   ExportLine[]
+  name:           string
+  contact:        string
+  links:          string
+  lines:          ExportLine[]
+  estimatedPages?: number   // optional; passed by the frontend for scaling hints
 }
 
 function isExportBody(body: unknown): body is ExportBody {
@@ -60,16 +74,12 @@ function isExportBody(body: unknown): body is ExportBody {
 }
 
 // ── Document helpers ──────────────────────────────────────────────────────────
+// Each helper accepts `size` so the body font can be scaled at export time.
 
-// Standard font/size for body text (half-points: 22 = 11pt)
-const BODY_FONT  = 'Calibri'
-const BODY_SIZE  = 22   // 11pt
-
-// A section header paragraph with a subtle bottom rule
-function sectionHeader(title: string): Paragraph {
+function sectionHeader(title: string, size: number): Paragraph {
   return new Paragraph({
     children: [
-      new TextRun({ text: title.toUpperCase(), bold: true, size: BODY_SIZE, color: '2E2E2E', font: BODY_FONT }),
+      new TextRun({ text: title.toUpperCase(), bold: true, size, color: '2E2E2E', font: BODY_FONT }),
     ],
     spacing: { before: 240, after: 80 },
     border: {
@@ -78,18 +88,16 @@ function sectionHeader(title: string): Paragraph {
   })
 }
 
-// A plain body paragraph
-function bodyParagraph(text: string, spacingAfter = 80): Paragraph {
+function bodyParagraph(text: string, spacingAfter: number, size: number): Paragraph {
   return new Paragraph({
-    children: [new TextRun({ text, size: BODY_SIZE, font: BODY_FONT })],
+    children: [new TextRun({ text, size, font: BODY_FONT })],
     spacing: { after: spacingAfter },
   })
 }
 
-// A bullet paragraph — requires a numbering reference registered on the Document
-function bulletParagraph(text: string, ref: string): Paragraph {
+function bulletParagraph(text: string, ref: string, size: number): Paragraph {
   return new Paragraph({
-    children: [new TextRun({ text, size: BODY_SIZE, font: BODY_FONT })],
+    children: [new TextRun({ text, size, font: BODY_FONT })],
     numbering: { reference: ref, level: 0 },
     spacing: { after: 80 },
   })
@@ -103,14 +111,33 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
     return
   }
 
-  const { name, contact, links, lines } = req.body
+  const { name, contact, links, lines, estimatedPages } = req.body
 
   if (!lines.length) {
     res.status(400).json({ error: 'No lines to export.' })
     return
   }
 
-  // Group lines by section, preserving insertion order
+  // ── Font scaling ────────────────────────────────────────────────────────────
+  // If the frontend estimates overflow, step the font down from 11pt in 0.5pt
+  // increments until the scaled estimate no longer exceeds 1.05 pages, or we
+  // hit the 10pt floor.  Scaling is quadratic: smaller font → more chars/line
+  // AND more lines/page, so effect compounds.
+  let bodySize = BODY_SIZE_DEFAULT
+  if (typeof estimatedPages === 'number' && estimatedPages > 1.05) {
+    let scaledEstimate = estimatedPages
+    while (bodySize > BODY_SIZE_MIN && scaledEstimate > 1.05) {
+      bodySize--   // 1 half-point = 0.5pt reduction
+      const fontRatio = bodySize / BODY_SIZE_DEFAULT
+      scaledEstimate  = estimatedPages * fontRatio * fontRatio
+    }
+    console.log(
+      `[export] Font scaled ${BODY_SIZE_DEFAULT / 2}pt → ${bodySize / 2}pt` +
+      ` (frontend estimate: ${estimatedPages.toFixed(2)} pages)`
+    )
+  }
+
+  // ── Group lines by section ──────────────────────────────────────────────────
   const grouped = new Map<string, string[]>()
   for (const line of lines) {
     const section = line.section ?? 'Other'
@@ -125,7 +152,7 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
       bulletRefs[section] = `bullets-${section.toLowerCase()}`
     }
   }
-  // Also handle any out-of-order sections that happen to be bullet sections
+  // Handle any out-of-order sections that are also bullet sections
   for (const [section] of grouped) {
     if (BULLET_SECTIONS.has(section) && !bulletRefs[section]) {
       bulletRefs[section] = `bullets-${section.toLowerCase()}-extra`
@@ -146,10 +173,9 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
   }))
 
   // ── Build paragraph list ────────────────────────────────────────────────────
-
   const children: Paragraph[] = []
 
-  // — Name header
+  // — Name header (18pt, always fixed — not affected by body scaling)
   if (name.trim()) {
     children.push(new Paragraph({
       children: [new TextRun({ text: name.trim(), bold: true, size: 36, font: BODY_FONT })],
@@ -158,7 +184,7 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
     }))
   }
 
-  // — Contact line (10pt, muted)
+  // — Contact line (10pt, muted — fixed size)
   if (contact.trim()) {
     children.push(new Paragraph({
       children: [new TextRun({ text: contact.trim(), size: 20, color: '666666', font: BODY_FONT })],
@@ -167,7 +193,7 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
     }))
   }
 
-  // — Links line (same style, more spacing after)
+  // — Links line (fixed size)
   if (links.trim()) {
     children.push(new Paragraph({
       children: [new TextRun({ text: links.trim(), size: 20, color: '666666', font: BODY_FONT })],
@@ -190,33 +216,28 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
     const sectionLines = grouped.get(section)
     if (!sectionLines?.length) continue
 
-    children.push(sectionHeader(section))
+    children.push(sectionHeader(section, bodySize))
 
     if (section === 'Summary') {
-      // Single paragraph — join multiple summary lines with a space
-      children.push(bodyParagraph(sectionLines.join(' '), 160))
+      children.push(bodyParagraph(sectionLines.join(' '), 160, bodySize))
 
     } else if (section === 'Education') {
-      // Plain paragraphs — no bullets, preserve as-is
       for (const line of sectionLines) {
-        children.push(bodyParagraph(line, 80))
+        children.push(bodyParagraph(line, 80, bodySize))
       }
 
     } else if (section === 'Skills') {
-      // All skill lines joined with · separator into one paragraph
-      children.push(bodyParagraph(sectionLines.join(' · '), 160))
+      children.push(bodyParagraph(sectionLines.join(' · '), 160, bodySize))
 
     } else if (BULLET_SECTIONS.has(section)) {
-      // Bullet points with a per-section numbering reference
       const ref = bulletRefs[section]
       for (const line of sectionLines) {
-        children.push(bulletParagraph(line, ref))
+        children.push(bulletParagraph(line, ref, bodySize))
       }
 
     } else {
-      // Fallback: plain paragraphs
       for (const line of sectionLines) {
-        children.push(bodyParagraph(line, 80))
+        children.push(bodyParagraph(line, 80, bodySize))
       }
     }
   }
@@ -224,20 +245,18 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
   // — Any sections not in SECTION_ORDER (edge case)
   for (const [section, sectionLines] of grouped) {
     if (SECTION_ORDER.includes(section)) continue
-    children.push(sectionHeader(section))
+    children.push(sectionHeader(section, bodySize))
     for (const line of sectionLines) {
-      children.push(bodyParagraph(line, 80))
+      children.push(bodyParagraph(line, 80, bodySize))
     }
   }
 
   // ── Assemble document ───────────────────────────────────────────────────────
-
   const doc = new Document({
-    // Default character properties for the whole document
     styles: {
       default: {
         document: {
-          run: { font: BODY_FONT, size: BODY_SIZE },
+          run: { font: BODY_FONT, size: bodySize },
         },
       },
     },
@@ -259,7 +278,9 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
 
   try {
     const buffer = await Packer.toBuffer(doc)
-    console.log(`[export] Generated .docx | ${lines.length} lines | ${buffer.length} bytes`)
+    console.log(
+      `[export] Generated .docx | ${lines.length} lines | ${bodySize / 2}pt body | ${buffer.length} bytes`
+    )
 
     res.set({
       'Content-Type':        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

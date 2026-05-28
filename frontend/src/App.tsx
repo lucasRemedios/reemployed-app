@@ -7,10 +7,11 @@
 // This means hover events never cause App (or the TextareaFields) to re-render.
 // The textarea text content is completely stable during hover.
 
-import { useState, useRef }  from 'react'
-import { TextareaField }     from './components/TextareaField'
+import { useState, useRef }      from 'react'
+import { TextareaField }         from './components/TextareaField'
 import type { TextareaFieldHandle } from './components/TextareaField'
-import { ResumeColumn }      from './components/ResumeColumn'
+import { ResumeColumn }          from './components/ResumeColumn'
+import { computePageEstimate }   from './utils/pageEstimate'
 import {
   SAMPLE_JOB_POSTING,
   SAMPLE_BACKGROUND,
@@ -44,8 +45,13 @@ export default function App() {
     backgroundFieldRef.current?.setHighlight(line?.backgroundReference ?? null)
   }
 
-  const isLoading    = status.kind === 'loading'
+  const isLoading     = status.kind === 'loading'
   const approvedCount = resumeLines.filter(l => l.approved).length
+  const totalCount    = resumeLines.length
+
+  // Live page estimate — recomputes whenever any line is approved, rejected, or edited.
+  // Passed to ResumeColumn for display and to the export fetch as a backend hint.
+  const estimatedPages = computePageEstimate(resumeLines)
 
   function validateInputs(): string | null {
     if (!jobPosting.trim())  return 'Please paste a job posting before tailoring.'
@@ -117,10 +123,11 @@ export default function App() {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          name:    '',
-          contact: '',
-          links:   '',
-          lines:   approvedLines,
+          name:           '',
+          contact:        '',
+          links:          '',
+          lines:          approvedLines,
+          estimatedPages,   // backend uses this to apply font scaling if > 1.05
         }),
       })
 
@@ -147,12 +154,20 @@ export default function App() {
     }
   }
 
-  // Download button label and disabled logic
-  const downloadDisabled = approvedCount === 0 || downloadStatus === 'loading'
-  const downloadLabel =
+  // Download requires every line to be approved — not just some
+  const allApproved      = totalCount > 0 && approvedCount === totalCount
+  const downloadDisabled = !allApproved || downloadStatus === 'loading'
+  const downloadLabel    =
     downloadStatus === 'loading' ? 'Downloading…' :
     downloadStatus === 'success' ? 'Downloaded ✓' :
     'Download Resume'
+
+  // Tooltip explains why the button is disabled
+  const downloadTitle = !allApproved
+    ? totalCount === 0
+      ? 'Tailor your resume first'
+      : `Approve all ${totalCount} lines to download`
+    : undefined
 
   return (
     <div className="app-shell">
@@ -199,6 +214,7 @@ export default function App() {
         <section className="workspace-column workspace-column--output">
           <ResumeColumn
             lines={resumeLines}
+            estimatedPages={estimatedPages}
             onApprove={(id) =>
               setResumeLines(prev =>
                 prev.map(l => l.id === id ? { ...l, approved: !l.approved } : l)
@@ -230,13 +246,13 @@ export default function App() {
           {!isLoading && <span className="button-arrow" aria-hidden>→</span>}
         </button>
 
-        {/* Download button — disabled until at least one line is approved */}
+        {/* Download — only enabled once every line in the column is approved */}
         <button
           className="download-button"
           onClick={handleDownloadClick}
           disabled={downloadDisabled}
           data-success={downloadStatus === 'success'}
-          title={approvedCount === 0 ? 'Approve lines to download' : undefined}
+          title={downloadTitle}
         >
           {downloadLabel}
         </button>

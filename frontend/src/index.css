@@ -317,6 +317,13 @@ body {
   justify-content: space-between;
 }
 
+/* Right side of the header: "X / Y approved · ~N.N pages" */
+.resume-header-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 .progress-label {
   font-size: 0.75rem;
   font-weight: 500;
@@ -327,6 +334,22 @@ body {
 .progress-label[data-done="true"] {
   color: var(--c-accent);
   font-weight: 600;
+}
+
+/* Page estimate badge — inherits its colour as an inline style from the component */
+.page-estimate {
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  transition: color 200ms ease;
+}
+
+/* Advisory hint below the counter — red when over a page, green when sparse */
+.page-hint {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  margin-top: -0.35rem;   /* tuck it closer to the counter row */
+  transition: color 200ms ease;
 }
 
 .progress-track {
