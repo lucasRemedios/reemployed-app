@@ -1,12 +1,13 @@
-// ResumeLineCard.tsx — a single resume line with edit/approve controls.
+// ResumeLineCard.tsx
 //
-// Hover triggers onHoverStart/onHoverEnd in the parent chain, which
-// ultimately tells the left two columns what text to highlight.
-//
-// Local state only:
-//   isEditing / draftText — edit-in-place flow
+// Interaction model:
+//   Resting  — clean card, only Approve button visible
+//   Hover    — subtle background shift, faint pencil icon top-right
+//   Click    — text becomes an inline textarea (same font/size/padding, no jump)
+//   Blur     — auto-save if text changed, return to display mode
+//   Escape   — revert without saving
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { ResumeLineItem } from '../types'
 
 type Props = {
@@ -20,22 +21,54 @@ type Props = {
 export function ResumeLineCard({ line, onApprove, onSave, onHoverStart, onHoverEnd }: Props) {
   const [isEditing, setIsEditing] = useState(false)
   const [draftText, setDraftText] = useState(line.text)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  function handleEdit() {
+  // When edit mode activates: size the textarea to match the text height,
+  // focus it, and place the cursor at the end.
+  useEffect(() => {
+    if (!isEditing || !textareaRef.current) return
+    const el = textareaRef.current
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+    el.focus()
+    el.selectionStart = el.selectionEnd = el.value.length
+  }, [isEditing])
+
+  function startEditing() {
     setDraftText(line.text)
     setIsEditing(true)
   }
 
-  function handleCancel() {
+  function commitEdit() {
+    const trimmed = draftText.trim()
+    if (trimmed && trimmed !== line.text) {
+      onSave(line.id, trimmed)
+    }
+    setIsEditing(false)
+  }
+
+  function cancelEdit() {
     setDraftText(line.text)
     setIsEditing(false)
   }
 
-  function handleSave() {
-    if (draftText.trim() && draftText !== line.text) {
-      onSave(line.id, draftText.trim())
+  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    setDraftText(e.target.value)
+    // Auto-resize to content height so there is no scrollbar inside the card
+    e.target.style.height = 'auto'
+    e.target.style.height = `${e.target.scrollHeight}px`
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      cancelEdit()
     }
-    setIsEditing(false)
+    // Enter (without Shift) commits — resume lines are single paragraphs
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      commitEdit()
+    }
   }
 
   return (
@@ -46,49 +79,37 @@ export function ResumeLineCard({ line, onApprove, onSave, onHoverStart, onHoverE
       onMouseEnter={() => !isEditing && onHoverStart(line)}
       onMouseLeave={() => !isEditing && onHoverEnd()}
     >
-      {/* Text or edit textarea */}
+      {/* Pencil affordance — invisible at rest, fades in on hover */}
+      <span className="pencil-icon" aria-hidden="true">✎</span>
+
+      {/* Text area — click to edit */}
       {isEditing ? (
         <textarea
-          className="line-edit-textarea"
+          ref={textareaRef}
+          className="line-inline-textarea"
           value={draftText}
-          onChange={e => setDraftText(e.target.value)}
-          autoFocus
-          rows={Math.max(2, Math.ceil(draftText.length / 68))}
+          onChange={handleChange}
+          onBlur={commitEdit}
+          onKeyDown={handleKeyDown}
         />
       ) : (
-        <p className="line-text">{line.text}</p>
+        <p className="line-text" onClick={startEditing}>
+          {line.text}
+        </p>
       )}
 
-      {/* Actions */}
+      {/* Actions — Approve always present; edited mark when applicable */}
       <div className="line-actions">
-        {isEditing ? (
-          <>
-            <button className="line-btn line-btn--ghost" onClick={handleCancel}>
-              Cancel
-            </button>
-            <button
-              className="line-btn line-btn--save"
-              onClick={handleSave}
-              disabled={!draftText.trim()}
-            >
-              Save
-            </button>
-          </>
-        ) : (
-          <>
-            {line.edited && <span className="edited-mark" title="You edited this line">✎</span>}
-            <button className="line-btn line-btn--ghost" onClick={handleEdit}>
-              Edit
-            </button>
-            <button
-              className="line-btn line-btn--approve"
-              data-approved={line.approved}
-              onClick={() => onApprove(line.id)}
-            >
-              {line.approved ? '✓ Approved' : 'Approve'}
-            </button>
-          </>
+        {line.edited && !isEditing && (
+          <span className="edited-mark" title="You edited this line">✎</span>
         )}
+        <button
+          className="line-btn line-btn--approve"
+          data-approved={line.approved}
+          onClick={() => onApprove(line.id)}
+        >
+          {line.approved ? '✓ Approved' : 'Approve'}
+        </button>
       </div>
     </div>
   )
