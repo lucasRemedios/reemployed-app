@@ -1,48 +1,99 @@
 // App.tsx — root component and single source of truth.
 //
-// hoveredLine: when the user hovers a resume line card, we store it here.
-// The two TextareaFields read from it to know what text to highlight.
-// null = no hover active = no highlight shown.
+// Phase 4 additions:
+//   - AppStatus state: idle | loading | error | done
+//   - handleTailorClick: validates inputs, calls /api/tailor, populates resume
+//   - Error message shown in the action bar
+//   - Button label changes during loading
 
-import { useState }        from 'react'
-import { TextareaField }   from './components/TextareaField'
-import { ResumeColumn }    from './components/ResumeColumn'
+import { useState }       from 'react'
+import { TextareaField }  from './components/TextareaField'
+import { ResumeColumn }   from './components/ResumeColumn'
 import {
   SAMPLE_JOB_POSTING,
   SAMPLE_BACKGROUND,
   SAMPLE_LINES,
 } from './sampleData'
-import type { ResumeLineItem } from './types'
+import type { ResumeLineItem, AppStatus } from './types'
 
 const MAX_JOB_WORDS        = 5_000
 const MAX_BACKGROUND_WORDS = 15_000
 
 export default function App() {
-  // Pre-populated with sample data so the hover UI is demonstrable immediately.
-  // Phase 4: these start empty; the user pastes their own content.
   const [jobPosting,  setJobPosting]  = useState(SAMPLE_JOB_POSTING)
   const [background,  setBackground]  = useState(SAMPLE_BACKGROUND)
   const [resumeLines, setResumeLines] = useState<ResumeLineItem[]>(SAMPLE_LINES)
-
-  // Which line card the user is currently hovering.
-  // Drives the highlight in the left two columns.
   const [hoveredLine, setHoveredLine] = useState<ResumeLineItem | null>(null)
 
-  function handleApprove(id: string) {
-    setResumeLines(prev =>
-      prev.map(line => line.id === id ? { ...line, approved: !line.approved } : line)
-    )
+  // AppStatus drives the button label and whether errors are shown.
+  const [status, setStatus] = useState<AppStatus>({ kind: 'idle' })
+
+  const isLoading = status.kind === 'loading'
+
+  function validateInputs(): string | null {
+    if (!jobPosting.trim())   return 'Please paste a job posting before tailoring.'
+    if (!background.trim())   return 'Please paste your background before tailoring.'
+    return null
   }
 
-  function handleSave(id: string, newText: string) {
-    setResumeLines(prev =>
-      prev.map(line => line.id === id ? { ...line, text: newText, edited: true } : line)
-    )
+  async function handleTailorClick() {
+    const validationError = validateInputs()
+    if (validationError) {
+      setStatus({ kind: 'error', message: validationError })
+      return
+    }
+
+    setStatus({ kind: 'loading', stage: 1 })
+    setHoveredLine(null)
+
+    try {
+      const response = await fetch('/api/tailor', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          jobPosting,
+          candidateBackground: background,
+        }),
+      })
+
+      // Parse the body regardless of status — error responses also contain JSON
+      const data = await response.json() as Record<string, unknown>
+
+      if (!response.ok) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Server error')
+      }
+
+      // Map raw LLM lines to ResumeLineItem[] by adding UI fields
+      const rawLines = data.lines as Array<{
+        text: string
+        postingReference: string
+        backgroundReference: string
+        section?: string
+      }>
+
+      const lines: ResumeLineItem[] = rawLines.map((line, i) => ({
+        id:                  `line-${i}`,
+        text:                line.text,
+        postingReference:    line.postingReference,
+        backgroundReference: line.backgroundReference,
+        section:             line.section,
+        approved:            false,
+        edited:              false,
+      }))
+
+      setResumeLines(lines)
+      setStatus({ kind: 'done' })
+
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      setStatus({ kind: 'error', message })
+    }
   }
 
-  function handleTailorClick() {
-    // Phase 4: replace with real LLM pipeline.
-    alert('LLM pipeline coming in Phase 4!')
+  // Label shown inside the button depending on current status
+  function buttonLabel(): string {
+    if (status.kind === 'loading') return 'Tailoring your resume…'
+    return 'Tailor Resume'
   }
 
   return (
@@ -61,7 +112,6 @@ export default function App() {
 
       <main className="workspace">
 
-        {/* Left — job posting */}
         <section className="workspace-column">
           <TextareaField
             label="Job Posting"
@@ -75,7 +125,6 @@ export default function App() {
           />
         </section>
 
-        {/* Middle — candidate background */}
         <section className="workspace-column">
           <TextareaField
             label="Your Background"
@@ -89,12 +138,19 @@ export default function App() {
           />
         </section>
 
-        {/* Right — tailored resume */}
         <section className="workspace-column workspace-column--output">
           <ResumeColumn
             lines={resumeLines}
-            onApprove={handleApprove}
-            onSave={handleSave}
+            onApprove={(id) =>
+              setResumeLines(prev =>
+                prev.map(l => l.id === id ? { ...l, approved: !l.approved } : l)
+              )
+            }
+            onSave={(id, newText) =>
+              setResumeLines(prev =>
+                prev.map(l => l.id === id ? { ...l, text: newText, edited: true } : l)
+              )
+            }
             onLineHover={setHoveredLine}
           />
         </section>
@@ -102,9 +158,19 @@ export default function App() {
       </main>
 
       <footer className="action-bar">
-        <button className="tailor-button" onClick={handleTailorClick}>
-          Tailor Resume
-          <span className="button-arrow" aria-hidden>→</span>
+        {/* Error message — shown to the left of the button */}
+        {status.kind === 'error' && (
+          <p className="action-error">{status.message}</p>
+        )}
+
+        <button
+          className="tailor-button"
+          onClick={handleTailorClick}
+          disabled={isLoading}
+        >
+          {isLoading && <span className="button-spinner" aria-hidden />}
+          {buttonLabel()}
+          {!isLoading && <span className="button-arrow" aria-hidden>→</span>}
         </button>
       </footer>
 

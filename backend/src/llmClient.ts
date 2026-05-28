@@ -1,20 +1,46 @@
-// llmClient.ts — the swappable LLM module.
+// llmClient.ts — the ONLY file that knows which LLM provider we're using.
 //
-// This is the ONLY file that knows which LLM provider we're using.
-// Every other file calls the functions exported here.
-// To switch from Grok to Claude (or any other provider), you rewrite
-// only this file — the rest of the codebase is untouched.
+// Current provider: Groq (https://groq.com)
+// Groq runs open-source models (Llama, Mixtral) on custom LPU hardware —
+// extremely fast inference, generous free tier, OpenAI-compatible API.
 //
-// The interface contract (what callers can count on):
-//   callLLM(prompt: string): Promise<string>
-//     → send a prompt, get back the raw text response.
+// To swap providers (e.g. to Claude or OpenAI), rewrite only this file.
+// Everything else in the codebase calls callLLM() and never knows the difference.
 //
-// Phase 4 will implement this for real. For now it's a stub that
-// returns a placeholder so the rest of the code can be wired up
-// against the interface without needing a live API key yet.
+// Interface contract:
+//   callLLM(systemPrompt, userMessage) → Promise<string>
+//   The returned string is always the raw text content from the model.
 
-export async function callLLM(prompt: string): Promise<string> {
-  // TODO (Phase 4): replace this stub with the real Grok API call.
-  console.log('[llmClient] callLLM called (stub). Prompt length:', prompt.length)
-  return '[LLM stub response — not yet implemented]'
+import Groq from 'groq-sdk'
+
+// Groq client — reads GROQ_API_KEY from process.env (loaded by dotenv in index.ts)
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+})
+
+// Model is configurable via .env so you can switch without touching code.
+// Default: llama-3.3-70b-versatile — best quality on Groq for this use case.
+const MODEL = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile'
+
+export async function callLLM(systemPrompt: string, userMessage: string): Promise<string> {
+  console.log(`[llmClient] Calling ${MODEL} | system: ${systemPrompt.length} chars | user: ${userMessage.length} chars`)
+
+  const completion = await groq.chat.completions.create({
+    model: MODEL,
+    messages: [
+      { role: 'system',  content: systemPrompt },
+      { role: 'user',    content: userMessage  },
+    ],
+    // Ask the model to respond with valid JSON only.
+    // Not all models support this — if it causes errors, remove it and
+    // rely on the prompt instruction alone.
+    response_format: { type: 'json_object' },
+    temperature: 0.3,  // lower = more focused/deterministic output
+  })
+
+  const content = completion.choices[0]?.message?.content
+  if (!content) throw new Error('Groq returned an empty response')
+
+  console.log(`[llmClient] Response received: ${content.length} chars`)
+  return content
 }

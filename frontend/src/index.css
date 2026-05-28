@@ -520,7 +520,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 1.5rem;
   padding: 0 2rem;
+}
+
+/* Validation / API error shown to the left of the button */
+.action-error {
+  font-size: 0.8rem;
+  color: var(--c-error);
+  max-width: 360px;
+  line-height: 1.4;
 }
 
 .tailor-button {
@@ -537,15 +546,45 @@ body {
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
-  transition: background var(--transition), transform var(--transition);
+  transition: background var(--transition), transform var(--transition), opacity var(--transition);
+  white-space: nowrap;
 }
 
-.tailor-button:hover {
+.tailor-button:hover:not(:disabled) {
   background: var(--c-accent-hover);
 }
 
-.tailor-button:active {
+.tailor-button:active:not(:disabled) {
   transform: scale(0.98);
+}
+
+.tailor-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Spinner shown inside button during loading */
+.button-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.button-arrow {
+  font-size: 1rem;
+  transition: transform var(--transition);
+}
+
+.tailor-button:hover:not(:disabled) .button-arrow {
+  transform: translateX(3px);
 }
 
 .button-arrow {
