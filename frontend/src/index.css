@@ -354,12 +354,12 @@ body {
   font-weight: 600;
 }
 
-/* Page estimate — second line under the counter, colour set via inline style */
+/* Page estimate — second line under the counter, same colour as the counter */
 .page-estimate-inline {
   font-size: 0.72rem;
   font-weight: 500;
+  color: var(--c-text-3);
   white-space: nowrap;
-  transition: color 200ms ease;
 }
 
 /* Progress bar */

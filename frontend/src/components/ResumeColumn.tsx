@@ -31,25 +31,22 @@ function groupBySection(lines: ResumeLineItem[]): [string, ResumeLineItem[]][] {
 // ── Page estimate formatting ──────────────────────────────────────────────────
 
 type EstimateInfo = {
-  text:      string        // inline text appended after the counter, or '' if nothing approved
-  textColor: string        // CSS colour for the estimate text
-  barColor:  string        // CSS colour for the progress bar fill (amber bar stays #F59E0B)
+  text:      string        // inline text shown below the counter, or '' if nothing approved
+  barColor:  string        // CSS colour for the progress bar fill only
   statusMsg: string | null // separate line below the progress bar, or null
 }
 
-const GREEN = 'var(--c-accent)'
-const AMBER_TEXT = '#92400E'   // darker amber — readable on light backgrounds
-const AMBER_BAR  = '#F59E0B'   // original amber — stays on the bar
-const RED        = '#EF4444'
+const GREEN     = 'var(--c-accent)'
+const AMBER_BAR = '#F59E0B'
+const RED       = '#EF4444'
 
 function getEstimateInfo(pages: number, approvedCount: number): EstimateInfo {
   if (approvedCount === 0 || pages <= 0) {
-    return { text: '', textColor: GREEN, barColor: GREEN, statusMsg: null }
+    return { text: '', barColor: GREEN, statusMsg: null }
   }
   if (pages < 0.95) {
     return {
       text:      `about ${Math.round(pages * 100)}% of a page`,
-      textColor: AMBER_TEXT,
       barColor:  AMBER_BAR,
       statusMsg: 'Room to add more detail',
     }
@@ -57,7 +54,6 @@ function getEstimateInfo(pages: number, approvedCount: number): EstimateInfo {
   if (pages <= 1.05) {
     return {
       text:      'about 1 page ✓',
-      textColor: GREEN,
       barColor:  GREEN,
       statusMsg: null,
     }
@@ -65,14 +61,12 @@ function getEstimateInfo(pages: number, approvedCount: number): EstimateInfo {
   if (pages <= 1.5) {
     return {
       text:      `about ${pages.toFixed(1)} pages — trim a few lines`,
-      textColor: AMBER_TEXT,
       barColor:  AMBER_BAR,
       statusMsg: null,
     }
   }
   return {
     text:      `about ${Math.round(pages)} pages — consider cutting content`,
-    textColor: RED,
     barColor:  RED,
     statusMsg: null,
   }
@@ -101,7 +95,7 @@ export function ResumeColumn({ lines, estimatedPages, onApprove, onSave, onLineH
   const progressPct   = Math.round((approvedCount / total) * 100)
   const allDone       = approvedCount === total
 
-  const { text: estimateText, textColor: estimateTextColor, barColor: estimateBarColor, statusMsg } =
+  const { text: estimateText, barColor: estimateBarColor, statusMsg } =
     getEstimateInfo(estimatedPages, approvedCount)
 
   return (
@@ -121,7 +115,7 @@ export function ResumeColumn({ lines, estimatedPages, onApprove, onSave, onLineH
               {approvedCount} / {total} approved
             </span>
             {estimateText && (
-              <span className="page-estimate-inline" style={{ color: estimateTextColor }}>
+              <span className="page-estimate-inline">
                 {estimateText}
               </span>
             )}
