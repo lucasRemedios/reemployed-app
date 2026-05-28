@@ -315,19 +315,33 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* Overflow guard: neither side ever shifts or wraps */
+  overflow: hidden;
 }
 
-/* Right side of the header: "X / Y approved · ~N.N pages" */
-.resume-header-stats {
+/* Left label — pinned, never shrinks */
+.resume-header-top .column-label {
+  flex-shrink: 0;
+}
+
+/* Right group — takes remaining space, clips overflow rather than wrapping */
+.resume-header-right {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  justify-content: flex-end;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding-left: 0.75rem;   /* keep some breathing room from the left label */
 }
 
+/* Approved counter — never shrinks, never wraps */
 .progress-label {
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--c-text-3);
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: color var(--transition);
 }
 
@@ -336,22 +350,16 @@ body {
   font-weight: 600;
 }
 
-/* Page estimate badge — inherits its colour as an inline style from the component */
-.page-estimate {
+/* Inline page estimate — appended after the counter, colour set via inline style */
+.page-estimate-inline {
   font-size: 0.75rem;
   font-weight: 500;
-  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: color 200ms ease;
 }
 
-/* Advisory hint below the counter — red when over a page, green when sparse */
-.page-hint {
-  font-size: 0.72rem;
-  line-height: 1.4;
-  margin-top: -0.35rem;   /* tuck it closer to the counter row */
-  transition: color 200ms ease;
-}
-
+/* Progress bar */
 .progress-track {
   height: 3px;
   background: var(--c-border);
@@ -359,11 +367,19 @@ body {
   overflow: hidden;
 }
 
+/* Background colour is set by inline style; transition smooths state changes */
 .progress-fill {
   height: 100%;
-  background: var(--c-accent);
   border-radius: 99px;
-  transition: width 300ms ease, background var(--transition);
+  transition: width 300ms ease, background 200ms ease;
+}
+
+/* Status message — separate line below the progress bar, never on the header row */
+.page-status-msg {
+  font-size: 0.72rem;
+  color: var(--c-text-3);
+  line-height: 1.4;
+  margin-top: -0.25rem;   /* reduce gap with the bar above */
 }
 
 .progress-fill[data-done="true"] {

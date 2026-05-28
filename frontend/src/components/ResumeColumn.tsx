@@ -1,4 +1,11 @@
 // ResumeColumn.tsx — right column: progress bar + grouped line cards.
+//
+// Header layout contract:
+//   Left:  "TAILORED RESUME" — flex-shrink: 0, always left-aligned, never moves
+//   Right: "X / Y approved · [estimate]" — flex: 1, overflow hidden, white-space: nowrap
+//          Never wraps. If estimate text is long it clips rather than pushing the left label.
+//   Below header row: progress bar (colour matches estimate state)
+//   Below progress bar: optional status message (separate line, small, muted)
 
 import type { ResumeLineItem } from '../types'
 import { ResumeLineCard } from './ResumeLineCard'
@@ -21,14 +28,47 @@ function groupBySection(lines: ResumeLineItem[]): [string, ResumeLineItem[]][] {
   return Array.from(map.entries())
 }
 
-// Derive colour and optional hint text from the page estimate
-function pageEstimateStyle(pages: number): { color: string; hint: string | null } {
-  if (pages <= 0)   return { color: 'var(--c-text-3)',  hint: null }
-  if (pages > 1.1)  return { color: '#EF4444', hint: 'Trim lines or reject some to fit one page.' }
-  if (pages > 0.95) return { color: '#F59E0B', hint: null }
-  if (pages < 0.8)  return { color: 'var(--c-accent)',  hint: 'Room to add more detail.' }
-  return              { color: 'var(--c-accent)',  hint: null }
+// ── Page estimate formatting ──────────────────────────────────────────────────
+
+type EstimateInfo = {
+  text:      string        // inline text appended after the counter, or '' if nothing approved
+  color:     string        // CSS colour for both the estimate text and the progress bar
+  statusMsg: string | null // separate line below the progress bar, or null
 }
+
+function getEstimateInfo(pages: number, approvedCount: number): EstimateInfo {
+  if (approvedCount === 0 || pages <= 0) {
+    return { text: '', color: 'var(--c-accent)', statusMsg: null }
+  }
+  if (pages < 0.95) {
+    return {
+      text:      `about ${Math.round(pages * 100)}% of a page`,
+      color:     'var(--c-accent)',
+      statusMsg: 'Room to add more detail',
+    }
+  }
+  if (pages <= 1.05) {
+    return {
+      text:      'about 1 page ✓',
+      color:     'var(--c-accent)',
+      statusMsg: null,
+    }
+  }
+  if (pages <= 1.5) {
+    return {
+      text:      `about ${pages.toFixed(1)} pages — trim a few lines`,
+      color:     '#F59E0B',
+      statusMsg: null,
+    }
+  }
+  return {
+    text:      `about ${Math.round(pages)} pages — reject some lines`,
+    color:     '#EF4444',
+    statusMsg: null,
+  }
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function ResumeColumn({ lines, estimatedPages, onApprove, onSave, onLineHover }: Props) {
 
@@ -51,40 +91,46 @@ export function ResumeColumn({ lines, estimatedPages, onApprove, onSave, onLineH
   const progressPct   = Math.round((approvedCount / total) * 100)
   const allDone       = approvedCount === total
 
-  const { color: pageColor, hint: pageHint } = pageEstimateStyle(estimatedPages)
+  const { text: estimateText, color: estimateColor, statusMsg } =
+    getEstimateInfo(estimatedPages, approvedCount)
 
   return (
     <div className="resume-column">
 
       <div className="resume-header">
+
+        {/* ── Single stable flex row ─────────────────────────────────────────
+            Left label: flex-shrink: 0 — never moves, never shrinks.
+            Right group: flex: 1, min-width: 0, overflow: hidden — fills the
+            remaining space and clips rather than wrapping or pushing left. */}
         <div className="resume-header-top">
           <h2 className="column-label">Tailored Resume</h2>
 
-          {/* Right side: "X / Y approved" + live page estimate inline */}
-          <div className="resume-header-stats">
+          <div className="resume-header-right">
             <span className="progress-label" data-done={allDone}>
               {approvedCount} / {total} approved
             </span>
-            {approvedCount > 0 && (
-              <span className="page-estimate" style={{ color: pageColor }}>
-                · length about {estimatedPages.toFixed(1)} pages
+            {estimateText && (
+              <span className="page-estimate-inline" style={{ color: estimateColor }}>
+                {' · '}{estimateText}
               </span>
             )}
           </div>
         </div>
 
-        {/* Hint line — only when red (over a page) or green+sparse */}
-        {approvedCount > 0 && pageHint && (
-          <p className="page-hint" style={{ color: pageColor }}>{pageHint}</p>
-        )}
-
+        {/* ── Progress bar — colour tracks estimate state ────────────────── */}
         <div className="progress-track">
           <div
             className="progress-fill"
-            style={{ width: `${progressPct}%` }}
-            data-done={allDone}
+            style={{ width: `${progressPct}%`, background: estimateColor }}
           />
         </div>
+
+        {/* ── Status message — separate line, never on the header row ───── */}
+        {statusMsg && (
+          <p className="page-status-msg">{statusMsg}</p>
+        )}
+
       </div>
 
       <div className="resume-lines">
