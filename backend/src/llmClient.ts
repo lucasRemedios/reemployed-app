@@ -13,19 +13,28 @@
 
 import Groq from 'groq-sdk'
 
-// Groq client — reads GROQ_API_KEY from process.env (loaded by dotenv in index.ts)
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-})
+// Lazy singleton — the client is created the first time callLLM() is called,
+// not when this module is imported. This matters because ES module imports are
+// hoisted and run before dotenv.config() in index.ts, so process.env would be
+// empty if we instantiated the client at the top level.
+let _client: Groq | null = null
 
-// Model is configurable via .env so you can switch without touching code.
-// Default: llama-3.3-70b-versatile — best quality on Groq for this use case.
-const MODEL = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile'
+function getClient(): Groq {
+  if (!_client) {
+    if (!process.env.GROQ_API_KEY) {
+      throw new Error('GROQ_API_KEY is not set — add it to your .env file.')
+    }
+    _client = new Groq({ apiKey: process.env.GROQ_API_KEY })
+  }
+  return _client
+}
 
 export async function callLLM(systemPrompt: string, userMessage: string): Promise<string> {
+  const client = getClient()
+  const MODEL  = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile'
   console.log(`[llmClient] Calling ${MODEL} | system: ${systemPrompt.length} chars | user: ${userMessage.length} chars`)
 
-  const completion = await groq.chat.completions.create({
+  const completion = await client.chat.completions.create({
     model: MODEL,
     messages: [
       { role: 'system',  content: systemPrompt },

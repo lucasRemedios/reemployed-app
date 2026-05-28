@@ -5,7 +5,9 @@ import cors       from 'cors'
 import dotenv     from 'dotenv'
 import { tailorHandler } from './routes/tailor'
 
-dotenv.config({ path: '../../.env' })
+// Path is relative to process.cwd(), which is the `backend/` folder when
+// you run `npm run dev` from there. So `../.env` = project root `.env`.
+dotenv.config({ path: '../.env' })
 
 const app  = express()
 const PORT = process.env.PORT ?? 3001
