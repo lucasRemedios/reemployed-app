@@ -202,7 +202,7 @@ export default function App() {
           <TextareaField
             ref={backgroundFieldRef}
             label="Your Background"
-            hint="Paste your resume. The more context you add, the better it tailors — projects, notes, rough thoughts. Messy is fine."
+            hint="Paste your resume. More context is better. Projects, notes, rough thoughts. Messy is fine."
             value={background}
             onChange={setBackground}
             placeholder="Write everything relevant: roles, projects, papers, outcomes, skills."
