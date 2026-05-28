@@ -30,11 +30,6 @@ export default function App() {
   const [resumeLines, setResumeLines] = useState<ResumeLineItem[]>(SAMPLE_LINES)
   const [status,      setStatus]      = useState<AppStatus>({ kind: 'idle' })
 
-  // User identity fields — used when generating the .docx header
-  const [userName,    setUserName]    = useState('')
-  const [userContact, setUserContact] = useState('')
-  const [userLinks,   setUserLinks]   = useState('')
-
   const [downloadStatus, setDownloadStatus] = useState<DownloadStatus>('idle')
 
   // Refs to the two textarea fields — used to push highlight updates
@@ -122,9 +117,9 @@ export default function App() {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          name:    userName,
-          contact: userContact,
-          links:   userLinks,
+          name:    '',
+          contact: '',
+          links:   '',
           lines:   approvedLines,
         }),
       })
@@ -164,37 +159,12 @@ export default function App() {
 
       <header className="app-header">
         <div className="app-header-inner">
-
-          {/* Left: logo + tagline */}
-          <div className="app-header-brand">
+          <div>
             <h1 className="logo">ReEmployed</h1>
             <p className="tagline">
               Paste a job. Get a resume grounded in what you've actually done.
             </p>
           </div>
-
-          {/* Right: compact identity inputs — used when generating the .docx header */}
-          <div className="user-details">
-            <input
-              className="user-detail-input"
-              placeholder="Your full name"
-              value={userName}
-              onChange={e => setUserName(e.target.value)}
-            />
-            <input
-              className="user-detail-input"
-              placeholder="email · phone · location"
-              value={userContact}
-              onChange={e => setUserContact(e.target.value)}
-            />
-            <input
-              className="user-detail-input"
-              placeholder="linkedin.com/in/you · github.com/you"
-              value={userLinks}
-              onChange={e => setUserLinks(e.target.value)}
-            />
-          </div>
-
         </div>
       </header>
 
@@ -260,19 +230,16 @@ export default function App() {
           {!isLoading && <span className="button-arrow" aria-hidden>→</span>}
         </button>
 
-        {/* Download button + caption — disabled until at least one line is approved */}
-        <div className="download-group">
-          <button
-            className="download-button"
-            onClick={handleDownloadClick}
-            disabled={downloadDisabled}
-            data-success={downloadStatus === 'success'}
-            title={approvedCount === 0 ? 'Approve lines to download' : undefined}
-          >
-            {downloadLabel}
-          </button>
-          <span className="download-caption">Editable · No macros</span>
-        </div>
+        {/* Download button — disabled until at least one line is approved */}
+        <button
+          className="download-button"
+          onClick={handleDownloadClick}
+          disabled={downloadDisabled}
+          data-success={downloadStatus === 'success'}
+          title={approvedCount === 0 ? 'Approve lines to download' : undefined}
+        >
+          {downloadLabel}
+        </button>
 
       </footer>
 
