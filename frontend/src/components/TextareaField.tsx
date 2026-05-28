@@ -1,37 +1,37 @@
-// TextareaField.tsx — labeled textarea with a highlight overlay.
+// TextareaField.tsx
 //
-// How the highlight works:
-//   1. A <div> (the "backdrop") sits behind the <textarea> with identical
-//      font, size, and padding.
-//   2. When `highlightText` is set, the backdrop renders the full text with
-//      a <mark> around the matched excerpt.
-//   3. The textarea becomes color:transparent so the styled backdrop shows
-//      through. The caret stays visible via caret-color.
-//   4. On highlight change, we scroll both backdrop and textarea to center
-//      the highlighted excerpt in view.
+// The highlight is driven by a ref-based imperative API, not by props.
 //
-// The `highlightVariant` prop controls the highlight colour:
-//   'posting'    → warm amber  (left column)
-//   'background' → soft indigo (middle column)
+// WHY: hover events fire constantly. If we stored highlightText in React
+// state, every hover would re-render App → re-render both TextareaFields →
+// rebuild dangerouslySetInnerHTML → reflow text. That's the bug we're fixing.
+//
+// HOW: we expose setHighlight() via useImperativeHandle. The parent calls it
+// directly through a ref — no state change, no re-render, pure DOM mutation.
+//
+// Public API (TextareaFieldHandle):
+//   setHighlight(text: string | null) — show/clear highlight. Call freely.
 
-import { useRef, useEffect } from 'react'
+import { forwardRef, useImperativeHandle, useRef } from 'react'
+
+export interface TextareaFieldHandle {
+  setHighlight: (text: string | null) => void
+}
 
 type TextareaFieldProps = {
-  label: string
-  hint: string
-  value: string
-  onChange: (value: string) => void
-  placeholder: string
-  maxWords: number
-  highlightText?: string
-  highlightVariant?: 'posting' | 'background'
+  label:            string
+  hint:             string
+  value:            string
+  onChange:         (value: string) => void
+  placeholder:      string
+  maxWords:         number
+  highlightVariant: 'posting' | 'background'
 }
 
 function countWords(text: string): number {
   return text.trim() === '' ? 0 : text.trim().split(/\s+/).length
 }
 
-// Escape HTML entities so user text can safely go into dangerouslySetInnerHTML.
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -41,122 +41,131 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;')
 }
 
-// Build the backdrop innerHTML: plain escaped text, with one <mark> around
-// the first occurrence of `highlight` (if found).
-function buildBackdropHtml(text: string, highlight: string | undefined, variant: string): string {
-  const escaped = escapeHtml(text)
-  if (!highlight) return escaped
-
+function buildHighlightedHtml(text: string, highlight: string, variant: string): string {
   const idx = text.indexOf(highlight)
-  if (idx === -1) return escaped
-
-  const before = escapeHtml(text.slice(0, idx))
-  const match  = escapeHtml(highlight)
-  const after  = escapeHtml(text.slice(idx + highlight.length))
-
-  return `${before}<mark class="text-highlight text-highlight--${variant}">${match}</mark>${after}`
-}
-
-export function TextareaField({
-  label,
-  hint,
-  value,
-  onChange,
-  placeholder,
-  maxWords,
-  highlightText,
-  highlightVariant = 'posting',
-}: TextareaFieldProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const backdropRef = useRef<HTMLDivElement>(null)
-
-  const wordCount    = countWords(value)
-  const remaining    = maxWords - wordCount
-  const isNearLimit  = remaining < maxWords * 0.1
-  const isAtLimit    = remaining <= 0
-  const isHighlighting = !!highlightText
-
-  // When the highlight changes, scroll both layers to center the <mark>.
-  useEffect(() => {
-    if (!backdropRef.current || !textareaRef.current) return
-
-    if (!highlightText) return
-
-    // Wait one frame for the DOM to render the <mark> element.
-    requestAnimationFrame(() => {
-      const mark = backdropRef.current?.querySelector('mark')
-      if (!mark || !backdropRef.current || !textareaRef.current) return
-
-      const containerH = backdropRef.current.clientHeight
-      const scrollTo   = Math.max(
-        0,
-        (mark as HTMLElement).offsetTop - containerH / 2 + (mark as HTMLElement).offsetHeight / 2
-      )
-
-      backdropRef.current.scrollTop  = scrollTo
-      textareaRef.current.scrollTop  = scrollTo
-    })
-  }, [highlightText])
-
-  // Keep backdrop and textarea scroll positions in sync during manual scrolling.
-  function handleScroll() {
-    if (backdropRef.current && textareaRef.current) {
-      backdropRef.current.scrollTop = textareaRef.current.scrollTop
-    }
-  }
-
-  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const next = e.target.value
-    if (countWords(next) <= maxWords || next.length < value.length) {
-      onChange(next)
-    }
-  }
-
-  const backdropHtml = buildBackdropHtml(value, highlightText, highlightVariant)
-
+  if (idx === -1) return escapeHtml(text)
   return (
-    <div className="textarea-field">
-
-      <div className="textarea-header">
-        <div>
-          <h2 className="column-label">{label}</h2>
-          <p className="column-hint">{hint}</p>
-        </div>
-        <span
-          className="char-counter"
-          data-near={isNearLimit}
-          data-over={isAtLimit}
-        >
-          {wordCount.toLocaleString()} / {maxWords.toLocaleString()} words
-        </span>
-      </div>
-
-      {/* Wrapper: contains backdrop + textarea stacked on top of each other */}
-      <div className="textarea-wrapper">
-        {/* Backdrop is only visible during an active highlight.
-            When hidden, the textarea renders its own text normally —
-            no double-layering, no scroll-sync drift. */}
-        <div
-          ref={backdropRef}
-          className="textarea-backdrop"
-          aria-hidden="true"
-          style={{ visibility: isHighlighting ? 'visible' : 'hidden' }}
-          dangerouslySetInnerHTML={{ __html: backdropHtml }}
-        />
-        <textarea
-          ref={textareaRef}
-          className="textarea"
-          value={value}
-          onChange={handleChange}
-          onScroll={handleScroll}
-          placeholder={placeholder}
-          spellCheck={true}
-          // Make textarea text transparent when a highlight is active so the
-          // styled backdrop shows through. The caret stays visible.
-          style={{ color: isHighlighting ? 'transparent' : undefined }}
-        />
-      </div>
-
-    </div>
+    escapeHtml(text.slice(0, idx)) +
+    `<mark class="text-highlight text-highlight--${variant}">` +
+    escapeHtml(highlight) +
+    '</mark>' +
+    escapeHtml(text.slice(idx + highlight.length))
   )
 }
+
+export const TextareaField = forwardRef<TextareaFieldHandle, TextareaFieldProps>(
+  function TextareaField(
+    { label, hint, value, onChange, placeholder, maxWords, highlightVariant },
+    ref,
+  ) {
+    const textareaRef = useRef<HTMLTextAreaElement>(null)
+    const backdropRef = useRef<HTMLDivElement>(null)
+
+    // We keep a ref to the current value so setHighlight() can read it
+    // without being inside the render closure (avoids stale closures).
+    // This ref is updated on every render, but that's just a ref assignment —
+    // no DOM work, no reflow.
+    const valueRef = useRef(value)
+    valueRef.current = value
+
+    // ── Imperative highlight API ─────────────────────────────────────────────
+    // Called by the parent directly via ref — never causes a re-render here.
+    useImperativeHandle(ref, () => ({
+      setHighlight(text: string | null) {
+        const textarea = textareaRef.current
+        const backdrop = backdropRef.current
+        if (!textarea || !backdrop) return
+
+        if (!text) {
+          // Clear: hide backdrop, restore textarea text colour
+          backdrop.style.visibility = 'hidden'
+          textarea.style.color = ''
+          return
+        }
+
+        // Build the highlighted HTML and push it directly into the DOM.
+        // React never touches this div's innerHTML (no dangerouslySetInnerHTML,
+        // no JSX children), so there is no conflict.
+        backdrop.innerHTML = buildHighlightedHtml(valueRef.current, text, highlightVariant)
+        backdrop.style.visibility = 'visible'
+        // Make textarea text transparent so the styled backdrop shows through.
+        // React won't reset this because the JSX has no `style` prop on textarea.
+        textarea.style.color = 'transparent'
+
+        // Scroll to center the highlighted excerpt
+        requestAnimationFrame(() => {
+          const mark = backdrop.querySelector('mark')
+          if (!mark) return
+          const scrollTo = Math.max(
+            0,
+            (mark as HTMLElement).offsetTop -
+              backdrop.clientHeight / 2 +
+              (mark as HTMLElement).offsetHeight / 2,
+          )
+          backdrop.scrollTop = scrollTo
+          textarea.scrollTop = scrollTo
+        })
+      },
+    }), [highlightVariant])
+
+    // Keep backdrop scroll in sync when user scrolls the textarea manually
+    function handleScroll() {
+      if (backdropRef.current && textareaRef.current) {
+        backdropRef.current.scrollTop = textareaRef.current.scrollTop
+      }
+    }
+
+    function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+      const next = e.target.value
+      if (countWords(next) <= maxWords || next.length < value.length) {
+        onChange(next)
+      }
+    }
+
+    const wordCount   = countWords(value)
+    const remaining   = maxWords - wordCount
+    const isNearLimit = remaining < maxWords * 0.1
+    const isAtLimit   = remaining <= 0
+
+    return (
+      <div className="textarea-field">
+        <div className="textarea-header">
+          <div>
+            <h2 className="column-label">{label}</h2>
+            <p className="column-hint">{hint}</p>
+          </div>
+          <span
+            className="char-counter"
+            data-near={isNearLimit}
+            data-over={isAtLimit}
+          >
+            {wordCount.toLocaleString()} / {maxWords.toLocaleString()} words
+          </span>
+        </div>
+
+        <div className="textarea-wrapper">
+          {/* Backdrop: starts hidden, shown only during highlights.
+              No React-managed children — we write innerHTML directly via ref.
+              React will not interfere with it. */}
+          <div
+            ref={backdropRef}
+            className="textarea-backdrop"
+            aria-hidden="true"
+            style={{ visibility: 'hidden' }}
+          />
+          <textarea
+            ref={textareaRef}
+            className="textarea"
+            value={value}
+            onChange={handleChange}
+            onScroll={handleScroll}
+            placeholder={placeholder}
+            spellCheck={true}
+            // No `style` prop here — so React will never reset the
+            // color:transparent we set imperatively in setHighlight()
+          />
+        </div>
+      </div>
+    )
+  },
+)
