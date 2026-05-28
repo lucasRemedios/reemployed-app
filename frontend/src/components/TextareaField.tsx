@@ -13,6 +13,7 @@
 //   setHighlight(text: string | null) — show/clear highlight. Call freely.
 
 import { forwardRef, useImperativeHandle, useRef } from 'react'
+import { findBestMatch } from '../utils/matchText'
 
 export interface TextareaFieldHandle {
   setHighlight: (text: string | null) => void
@@ -56,15 +57,13 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;')
 }
 
-function buildHighlightedHtml(text: string, highlight: string, variant: string): string {
-  const idx = text.indexOf(highlight)
-  if (idx === -1) return escapeHtml(text)
+function buildHighlightedHtml(text: string, start: number, end: number, variant: string): string {
   return (
-    escapeHtml(text.slice(0, idx)) +
+    escapeHtml(text.slice(0, start)) +
     `<mark class="text-highlight text-highlight--${variant}">` +
-    escapeHtml(highlight) +
+    escapeHtml(text.slice(start, end)) +
     '</mark>' +
-    escapeHtml(text.slice(idx + highlight.length))
+    escapeHtml(text.slice(end))
   )
 }
 
@@ -92,22 +91,26 @@ export const TextareaField = forwardRef<TextareaFieldHandle, TextareaFieldProps>
         if (!textarea || !backdrop) return
 
         if (!text) {
-          // Clear: hide backdrop, restore textarea text colour
           backdrop.style.visibility = 'hidden'
           textarea.style.color = ''
           return
         }
 
-        // Build the highlighted HTML and push it directly into the DOM.
-        // React never touches this div's innerHTML (no dangerouslySetInnerHTML,
-        // no JSX children), so there is no conflict.
-        backdrop.innerHTML = buildHighlightedHtml(valueRef.current, text, highlightVariant)
+        // Find the best matching span — exact first, fuzzy fallback
+        const match = findBestMatch(valueRef.current, text)
+        if (!match) {
+          backdrop.style.visibility = 'hidden'
+          textarea.style.color = ''
+          return
+        }
+
+        backdrop.innerHTML = buildHighlightedHtml(
+          valueRef.current, match.start, match.end, highlightVariant,
+        )
         backdrop.style.visibility = 'visible'
-        // Make textarea text transparent so the styled backdrop shows through.
-        // React won't reset this because the JSX has no `style` prop on textarea.
         textarea.style.color = 'transparent'
 
-        // Scroll to center the highlighted excerpt
+        // Scroll to center the highlighted span
         requestAnimationFrame(() => {
           const mark = backdrop.querySelector('mark')
           if (!mark) return
