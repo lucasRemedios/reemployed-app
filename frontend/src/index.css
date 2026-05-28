@@ -154,8 +154,12 @@ body {
 
 .column-hint {
   font-size: 0.78rem;
+  line-height: 1.5;
   color: var(--c-text-3);
   margin-top: 0.2rem;
+  /* Reserve 3 lines so both columns' textareas start at the same vertical position
+     regardless of how many lines each hint wraps to. */
+  min-height: calc(0.78rem * 1.5 * 3);
 }
 
 /* Character counter */
