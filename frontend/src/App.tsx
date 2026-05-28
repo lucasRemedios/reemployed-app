@@ -177,7 +177,7 @@ export default function App() {
           <div>
             <h1 className="logo">ReEmployed</h1>
             <p className="tagline">
-              Paste a job. Get a resume grounded in what you've actually done.
+              Get a resume grounded in what you've actually done.
             </p>
           </div>
         </div>
@@ -202,7 +202,7 @@ export default function App() {
           <TextareaField
             ref={backgroundFieldRef}
             label="Your Background"
-            hint="More than a resume — your full story"
+            hint="Paste your resume. The more context you add, the better it tailors — projects, notes, rough thoughts. Messy is fine."
             value={background}
             onChange={setBackground}
             placeholder="Write everything relevant: roles, projects, papers, outcomes, skills."

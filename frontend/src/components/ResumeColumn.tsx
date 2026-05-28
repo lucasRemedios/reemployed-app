@@ -67,7 +67,7 @@ export function ResumeColumn({ lines, estimatedPages, onApprove, onSave, onLineH
             </span>
             {approvedCount > 0 && (
               <span className="page-estimate" style={{ color: pageColor }}>
-                · ~{estimatedPages.toFixed(1)} pages
+                · length about {estimatedPages.toFixed(1)} pages
               </span>
             )}
           </div>
