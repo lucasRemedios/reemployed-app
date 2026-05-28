@@ -35,7 +35,6 @@
 
   /* Spacing */
   --header-height:    72px;
-  --details-height:   48px;   /* Your Details input strip */
   --action-height:    72px;
   --col-padding:      1.5rem;
 
@@ -61,10 +60,10 @@ body {
 
 /* ── App shell ────────────────────────────────────────────────────────────── */
 
-/* Four rows: header | details strip | workspace (grows) | action bar */
+/* Three rows: header | workspace (grows) | action bar */
 .app-shell {
   display: grid;
-  grid-template-rows: var(--header-height) var(--details-height) 1fr var(--action-height);
+  grid-template-rows: var(--header-height) 1fr var(--action-height);
   height: 100vh;
   overflow: hidden;  /* each zone scrolls independently */
 }
@@ -106,45 +105,7 @@ body {
   font-style: italic;
 }
 
-/* ── Your Details input strip ─────────────────────────────────────────────── */
-/* Sits between the header and the workspace. Three inline inputs for name /
-   contact / links. Invisible until the user interacts — no border at rest. */
-.user-details-bar {
-  border-bottom: 1px solid var(--c-border);
-  background: var(--c-surface);
-  display: flex;
-  align-items: center;
-  padding: 0 2rem;
-  gap: 1rem;
-}
-
-.user-detail-input {
-  flex: 1;
-  min-width: 0;
-  height: 28px;
-  padding: 0 0.4rem;
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-  color: var(--c-text);
-  background: transparent;
-  border: 1px solid transparent;   /* invisible at rest */
-  border-radius: var(--radius-sm);
-  outline: none;
-  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
-}
-
-.user-detail-input::placeholder {
-  color: var(--c-text-3);
-  font-style: italic;
-}
-
-.user-detail-input:focus {
-  border-color: var(--c-accent);
-  background: var(--c-bg);
-  box-shadow: 0 0 0 2px rgba(42, 96, 73, 0.1);
-}
-
-/* ── Candidate header (live preview in the resume column) ─────────────────── */
+/* ── Candidate header (extracted by LLM, shown in the resume column) ─────── */
 .candidate-header {
   padding-bottom: 0.875rem;
   margin-bottom: 0.25rem;

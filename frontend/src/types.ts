@@ -17,6 +17,14 @@ export type TailorRequest = {
   candidateBackground: string  // contents of the middle text field
 }
 
+// Contact details extracted by the LLM from the candidate's background.
+// Used for the live header in the resume column and the .docx document header.
+export type CandidateHeader = {
+  name:    string   // full name as written in the background, or ''
+  contact: string   // email · phone · location on one line, or ''
+  links:   string   // LinkedIn · GitHub · etc on one line, or ''
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // STAGE 1 OUTPUT — Positioning Strategy
 // ─────────────────────────────────────────────────────────────────────────────

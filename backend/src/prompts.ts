@@ -49,6 +49,11 @@ export const STAGE_2_SYSTEM = `You are an expert resume writer. You tailor resum
 Return a JSON object with exactly this structure:
 
 {
+  "candidateHeader": {
+    "name": "The candidate's full name, exactly as written in the background. Empty string if not found.",
+    "contact": "Email, phone, and location on one line separated by ' · ', exactly as written. Empty string if not found.",
+    "links": "LinkedIn, GitHub, website, or other profile links on one line separated by ' · ', exactly as written. Empty string if not found."
+  },
   "lines": [
     {
       "text": "The tailored resume line. Concrete, specific, and directly relevant to the role.",
@@ -66,6 +71,7 @@ Return a JSON object with exactly this structure:
 }
 
 Rules:
+0. For candidateHeader: copy values verbatim from the background — do not reformat, paraphrase, or invent. Use empty string for any field not explicitly present.
 1. Only use information from the candidate's background. Do not invent anything.
 2. Every string in postingReference must be copied verbatim (word-for-word) from the job posting.
 3. Every string in backgroundReference must be copied verbatim (word-for-word) from the background.

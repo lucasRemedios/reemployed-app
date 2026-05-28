@@ -69,6 +69,18 @@ function isLineArray(obj: unknown): obj is Array<{
   )
 }
 
+// candidateHeader is optional-tolerant: if the model omits it we fall back to empty strings
+function parseCandidateHeader(obj: unknown): { name: string; contact: string; links: string } {
+  const fallback = { name: '', contact: '', links: '' }
+  if (typeof obj !== 'object' || obj === null) return fallback
+  const h = obj as Record<string, unknown>
+  return {
+    name:    typeof h.name    === 'string' ? h.name    : '',
+    contact: typeof h.contact === 'string' ? h.contact : '',
+    links:   typeof h.links   === 'string' ? h.links   : '',
+  }
+}
+
 export async function tailorHandler(req: Request, res: Response): Promise<void> {
   const { jobPosting, candidateBackground } = req.body as Record<string, unknown>
 
@@ -116,13 +128,15 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
     if (!isLineArray(lines)) {
       throw new Error('Stage 2 response did not contain a valid lines array.')
     }
-    console.log(`[tailor] Stage 2 complete. Lines returned: ${lines.length}`)
+    const candidateHeader = parseCandidateHeader(stage2Parsed.candidateHeader)
+    console.log(`[tailor] Stage 2 complete. Lines: ${lines.length} | Name extracted: "${candidateHeader.name || '(none)'}"`)
 
     // ── Return combined result ───────────────────────────────────────────────
     res.json({
-      strategy:    stage1Parsed,
+      strategy:        stage1Parsed,
+      candidateHeader,
       lines,
-      generatedAt: new Date().toISOString(),
+      generatedAt:     new Date().toISOString(),
     })
 
   } catch (err) {
