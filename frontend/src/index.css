@@ -313,10 +313,9 @@ body {
 
 .resume-header-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;  /* top-align so the left label sits level with the first right line */
   justify-content: space-between;
-  /* Overflow guard: neither side ever shifts or wraps */
-  overflow: hidden;
+  overflow: hidden;         /* neither side ever shifts or wraps */
 }
 
 /* Left label — pinned, never shrinks */
@@ -324,24 +323,25 @@ body {
   flex-shrink: 0;
 }
 
-/* Right group — takes remaining space, clips overflow rather than wrapping */
+/* Right group — column so estimate sits on its own line below the counter,
+   both lines right-aligned. Takes remaining space and clips overflow. */
 .resume-header-right {
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;   /* right-align both lines */
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  padding-left: 0.75rem;   /* keep some breathing room from the left label */
+  padding-left: 0.75rem;
+  gap: 0.1rem;
 }
 
-/* Approved counter — never shrinks, never wraps */
+/* Approved counter */
 .progress-label {
   font-size: 0.75rem;
   font-weight: 500;
   color: var(--c-text-3);
   white-space: nowrap;
-  flex-shrink: 0;
   transition: color var(--transition);
 }
 
@@ -350,12 +350,11 @@ body {
   font-weight: 600;
 }
 
-/* Inline page estimate — appended after the counter, colour set via inline style */
+/* Page estimate — second line under the counter, colour set via inline style */
 .page-estimate-inline {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 500;
   white-space: nowrap;
-  flex-shrink: 0;
   transition: color 200ms ease;
 }
 

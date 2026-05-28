@@ -43,7 +43,7 @@ function getEstimateInfo(pages: number, approvedCount: number): EstimateInfo {
   if (pages < 0.95) {
     return {
       text:      `about ${Math.round(pages * 100)}% of a page`,
-      color:     'var(--c-accent)',
+      color:     '#F59E0B',   // amber — user is aiming for a full page
       statusMsg: 'Room to add more detail',
     }
   }
@@ -62,7 +62,7 @@ function getEstimateInfo(pages: number, approvedCount: number): EstimateInfo {
     }
   }
   return {
-    text:      `about ${Math.round(pages)} pages — reject some lines`,
+    text:      `about ${Math.round(pages)} pages — consider cutting content`,
     color:     '#EF4444',
     statusMsg: null,
   }
@@ -112,7 +112,7 @@ export function ResumeColumn({ lines, estimatedPages, onApprove, onSave, onLineH
             </span>
             {estimateText && (
               <span className="page-estimate-inline" style={{ color: estimateColor }}>
-                {' · '}{estimateText}
+                {estimateText}
               </span>
             )}
           </div>
