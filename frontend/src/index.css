@@ -370,19 +370,12 @@ body {
   overflow: hidden;
 }
 
-/* Background colour is set by inline style; transition smooths state changes */
+/* Bar is always green — just tracks approval progress, no page-state colouring */
 .progress-fill {
   height: 100%;
+  background: var(--c-accent);
   border-radius: 99px;
-  transition: width 300ms ease, background 200ms ease;
-}
-
-/* Status message — separate line below the progress bar, never on the header row */
-.page-status-msg {
-  font-size: 0.72rem;
-  color: var(--c-text-3);
-  line-height: 1.4;
-  margin-top: -0.25rem;   /* reduce gap with the bar above */
+  transition: width 300ms ease;
 }
 
 .progress-fill[data-done="true"] {
