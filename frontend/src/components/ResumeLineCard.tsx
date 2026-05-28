@@ -78,11 +78,13 @@ export function ResumeLineCard({ line, onApprove, onSave, onHoverStart, onHoverE
       data-editing={isEditing}
       onMouseEnter={() => !isEditing && onHoverStart(line)}
       onMouseLeave={() => !isEditing && onHoverEnd()}
+      onClick={() => !isEditing && startEditing()}
     >
       {/* Pencil affordance — invisible at rest, fades in on hover */}
       <span className="pencil-icon" aria-hidden="true">✎</span>
 
-      {/* Text area — click to edit */}
+      {/* Text area — clicking anywhere on the card activates edit (onClick on card div).
+          The <p> has no onClick of its own; it just displays the text. */}
       {isEditing ? (
         <textarea
           ref={textareaRef}
@@ -93,7 +95,7 @@ export function ResumeLineCard({ line, onApprove, onSave, onHoverStart, onHoverE
           onKeyDown={handleKeyDown}
         />
       ) : (
-        <p className="line-text" onClick={startEditing}>
+        <p className="line-text">
           {line.text}
         </p>
       )}
@@ -106,7 +108,7 @@ export function ResumeLineCard({ line, onApprove, onSave, onHoverStart, onHoverE
         <button
           className="line-btn line-btn--approve"
           data-approved={line.approved}
-          onClick={() => onApprove(line.id)}
+          onClick={(e) => { e.stopPropagation(); onApprove(line.id) }}
         >
           {line.approved ? '✓ Approved' : 'Approve'}
         </button>

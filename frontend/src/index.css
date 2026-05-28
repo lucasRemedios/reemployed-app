@@ -395,11 +395,13 @@ body {
     box-shadow var(--transition);
 }
 
-/* Hover: subtle background shift + amber left accent */
+/* Hover: subtle background shift + amber left accent.
+   cursor: text on the whole card so the entire area feels editable. */
 .line-card:hover:not([data-editing="true"]) {
   background: #FDFCF9;
   border-left-color: rgba(217, 119, 6, 0.35);
   box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+  cursor: text;
 }
 
 /* Approved: green left accent + faint green tint.
@@ -436,12 +438,11 @@ body {
   opacity: 0.45;
 }
 
-/* ── Line text (click target) ─────────────────────────────────────────────── */
+/* ── Line text ────────────────────────────────────────────────────────────── */
 .line-text {
   font-size: 0.875rem;
   line-height: 1.65;
   color: var(--c-text);
-  cursor: text;
 }
 
 /* ── Inline edit textarea ─────────────────────────────────────────────────── */
