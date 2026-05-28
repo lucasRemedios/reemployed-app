@@ -33,6 +33,11 @@ export default function App() {
 
   const [downloadStatus, setDownloadStatus] = useState<DownloadStatus>('idle')
 
+  // Your Details — live preview in the resume column + used in .docx export
+  const [userName,    setUserName]    = useState('')
+  const [userContact, setUserContact] = useState('')
+  const [userLinks,   setUserLinks]   = useState('')
+
   // Refs to the two textarea fields — used to push highlight updates
   // directly into the DOM without going through React state/props.
   const jobPostingFieldRef = useRef<TextareaFieldHandle>(null)
@@ -123,9 +128,9 @@ export default function App() {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          name:           '',
-          contact:        '',
-          links:          '',
+          name:           userName,
+          contact:        userContact,
+          links:          userLinks,
           lines:          approvedLines,
           estimatedPages,   // backend uses this to apply font scaling if > 1.05
         }),
@@ -183,6 +188,29 @@ export default function App() {
         </div>
       </header>
 
+      {/* Your Details strip — compact inputs for name / contact / links.
+          Values feed the live preview in the resume column and the .docx header. */}
+      <div className="user-details-bar">
+        <input
+          className="user-detail-input"
+          placeholder="Your full name"
+          value={userName}
+          onChange={e => setUserName(e.target.value)}
+        />
+        <input
+          className="user-detail-input"
+          placeholder="email · phone · location"
+          value={userContact}
+          onChange={e => setUserContact(e.target.value)}
+        />
+        <input
+          className="user-detail-input"
+          placeholder="linkedin.com/in/you · github.com/you"
+          value={userLinks}
+          onChange={e => setUserLinks(e.target.value)}
+        />
+      </div>
+
       <main className="workspace">
 
         <section className="workspace-column">
@@ -215,6 +243,9 @@ export default function App() {
           <ResumeColumn
             lines={resumeLines}
             estimatedPages={estimatedPages}
+            name={userName}
+            contact={userContact}
+            links={userLinks}
             onApprove={(id) =>
               setResumeLines(prev =>
                 prev.map(l => l.id === id ? { ...l, approved: !l.approved } : l)
