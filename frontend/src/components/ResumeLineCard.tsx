@@ -78,7 +78,7 @@ export function ResumeLineCard({ line, onApprove, onSave, onHoverStart, onHoverE
       data-editing={isEditing}
       onMouseEnter={() => !isEditing && onHoverStart(line)}
       onMouseLeave={() => !isEditing && onHoverEnd()}
-      onClick={() => !isEditing && startEditing()}
+      onClick={() => !isEditing && !line.approved && startEditing()}
     >
       {/* Pencil affordance — invisible at rest, fades in on hover */}
       <span className="pencil-icon" aria-hidden="true">✎</span>

@@ -396,8 +396,8 @@ body {
 }
 
 /* Hover: subtle background shift + amber left accent.
-   cursor: text on the whole card so the entire area feels editable. */
-.line-card:hover:not([data-editing="true"]) {
+   cursor: text only when the card is not approved — approved cards are locked. */
+.line-card:hover:not([data-editing="true"]):not([data-approved="true"]) {
   background: #FDFCF9;
   border-left-color: rgba(217, 119, 6, 0.35);
   box-shadow: 0 1px 6px rgba(0,0,0,0.05);
@@ -433,8 +433,8 @@ body {
   line-height: 1;
 }
 
-/* Fade in on hover, stay hidden while editing */
-.line-card:hover:not([data-editing="true"]) .pencil-icon {
+/* Fade in on hover — only when not editing and not approved (locked cards can't be edited) */
+.line-card:hover:not([data-editing="true"]):not([data-approved="true"]) .pencil-icon {
   opacity: 0.45;
 }
 
