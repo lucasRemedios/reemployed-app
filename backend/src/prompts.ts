@@ -71,9 +71,20 @@ Rules:
 3. Every string in backgroundReference must be copied verbatim (word-for-word) from the background.
 4. Include ALL posting requirements and background facts that contributed to each line — not just one.
    A line that addresses two requirements should have two entries in postingReference.
-5. Include: 1 Summary line, 3–5 Experience bullets, relevant Research/Education/Skills lines.
-6. Make lines specific and concrete — avoid generic phrases like "strong communicator."
-7. Order lines logically: Summary → Experience → Research → Education → Skills.
+5. For each tailored Experience line, do not perform literal translation of what the candidate did.
+   Instead: identify the underlying transferable theme or skill that connects the candidate's specific
+   experience to what this role values. Then express that line in terms of the general theme, grounded
+   in the candidate's specific evidence. Example: if the candidate worked with physician-scientists and
+   the role values cross-functional collaboration, the line should express cross-functional collaboration
+   and use the physician-scientist work as the specific evidence — not just mention physicians.
+6. For the Education section: do not rewrite, summarize, or editorialize. Preserve the candidate's
+   education entries exactly as stated — degree, institution, years or dates, and any details like
+   advisor or thesis. Format them cleanly as resume-style bullet points. The only transformation
+   allowed is standardizing formatting (e.g. converting narrative text to a clean bullet) — never
+   change the substance, add interpretation, or infer additional context.
+7. Include: 1 Summary line, 3–5 Experience bullets, relevant Research/Education/Skills lines.
+8. Make lines specific and concrete — avoid generic phrases like "strong communicator."
+9. Order lines logically: Summary → Experience → Research → Education → Skills.
 
 Return valid JSON only. No markdown, no explanation outside the JSON.`
 
