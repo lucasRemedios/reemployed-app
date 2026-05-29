@@ -7,7 +7,8 @@
 // See prompts.ts and frontend/src/types.ts for the field-level contract.
 
 import { Request, Response } from 'express'
-import { callLLM } from '../llmClient'
+import { callLLM }     from '../llmClient'
+import { getSupabase } from '../supabaseClient'
 import { STAGE_1_SYSTEM, STAGE_1_USER, STAGE_2_SYSTEM, STAGE_2_USER } from '../prompts'
 
 const MAX_JOB_WORDS        = 5_000
@@ -224,9 +225,36 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
       ` | education: ${education.length}`
     )
 
+    const resume = { personalDetails, summary, experience, education, research, skills, additional }
+
+    // ── Persist to DB (authenticated requests only) ────────────────────────────
+    // req.userId is set by optionalAuth middleware when a valid Bearer token is
+    // present. Unauthenticated requests skip this block silently.
+    // DB errors are logged but never surface as HTTP errors — the client already
+    // has the resume data and the pipeline succeeded.
+    if (req.userId) {
+      try {
+        const { error: dbError } = await getSupabase()
+          .from('resume_runs')
+          .insert({
+            user_id:       req.userId,
+            job_posting:   jobPosting,
+            stage1_output: stage1Parsed,
+            stage2_output: resume,
+          })
+        if (dbError) {
+          console.error('[tailor] DB save failed:', dbError.message)
+        } else {
+          console.log(`[tailor] Resume run saved for user ${req.userId}`)
+        }
+      } catch (err) {
+        console.error('[tailor] DB save error:', err instanceof Error ? err.message : err)
+      }
+    }
+
     res.json({
-      strategy: stage1Parsed,
-      resume: { personalDetails, summary, experience, education, research, skills, additional },
+      strategy:    stage1Parsed,
+      resume,
       generatedAt: new Date().toISOString(),
     })
 

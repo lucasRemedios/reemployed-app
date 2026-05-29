@@ -5,6 +5,7 @@ import cors       from 'cors'
 import dotenv     from 'dotenv'
 import { tailorHandler }  from './routes/tailor'
 import { exportHandler }  from './routes/export'
+import { optionalAuth }   from './middleware/auth'
 
 // Path is relative to process.cwd(), which is the `backend/` folder when
 // you run `npm run dev` from there. So `../.env` = project root `.env`.
@@ -22,8 +23,10 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-// Main pipeline: job posting + background → tailored resume
-app.post('/api/tailor',  tailorHandler)
+// Main pipeline: job posting + background → tailored resume.
+// optionalAuth extracts req.userId when a valid Bearer token is present;
+// unauthenticated requests pass through and the pipeline still runs.
+app.post('/api/tailor',  optionalAuth, tailorHandler)
 
 // Export: approved lines → .docx file download
 app.post('/api/export',  exportHandler)
