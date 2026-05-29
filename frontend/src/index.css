@@ -138,9 +138,15 @@ body {
 
 .textarea-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column;
   flex-shrink: 0;
+}
+
+/* Label row: label on left, counter on right — hint is NOT in this row */
+.textarea-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
 }
 
 .column-label {
@@ -158,7 +164,8 @@ body {
   color: var(--c-text-3);
   margin-top: 0.2rem;
   /* Reserve 3 lines so both columns' textareas start at the same vertical position
-     regardless of how many lines each hint wraps to. */
+     regardless of how many lines each hint wraps to. The hint now gets full column
+     width — its wrap points never change regardless of word count. */
   min-height: calc(0.78rem * 1.5 * 3);
 }
 
@@ -220,8 +227,8 @@ body {
   line-height: 1.7;
   color: var(--c-text);
   caret-color: var(--c-accent);
-  /* color transitions to transparent during hover highlight (see inline style in component) */
-  transition: color 0.1s ease;
+  /* No color transition — color must switch instantly or the textarea text
+     and backdrop text overlap for the duration of the fade, causing a flash. */
 }
 
 .textarea::placeholder {
@@ -242,7 +249,6 @@ body {
   background: rgba(217, 119, 6, 0.18);
   box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.25);
   color: var(--c-text);
-  animation: highlight-appear 0.25s ease;
 }
 
 /* Background column: soft indigo */
@@ -250,12 +256,6 @@ body {
   background: rgba(99, 102, 241, 0.15);
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
   color: var(--c-text);
-  animation: highlight-appear 0.25s ease;
-}
-
-@keyframes highlight-appear {
-  from { opacity: 0; }
-  to   { opacity: 1; }
 }
 
 /* Subtle focus ring on the column when the textarea has focus */
@@ -399,9 +399,10 @@ body {
 .resume-section {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
 }
 
+/* Section title — no border; border lives on the header row */
 .resume-section-title {
   font-family: var(--font-display);
   font-size: 0.68rem;
@@ -409,8 +410,85 @@ body {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--c-accent);
+}
+
+/* ── Section header row: title + approve button ───────────────────────────── */
+.resume-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding-bottom: 0.4rem;
   border-bottom: 1px solid var(--c-accent-light);
+}
+
+/* Section-level approve button */
+.section-approve-btn {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.18rem 0.55rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  background: var(--c-accent-light);
+  color: var(--c-accent);
+  flex-shrink: 0;
+  transition: background var(--transition), color var(--transition);
+}
+.section-approve-btn:hover {
+  background: #C8E6D5;
+}
+.section-approve-btn[data-approved="true"] {
+  background: var(--c-accent);
+  color: #fff;
+}
+.section-approve-btn[data-approved="true"]:hover {
+  background: var(--c-accent-hover);
+}
+
+/* ── Entry block (groups sub-fields for one experience / education entry) ── */
+.resume-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--c-border);
+}
+
+/* Gap between consecutive entry groups (e.g. two experience entries).
+   Larger than the within-entry card gap to cue the user they are separate items. */
+.resume-entry + .resume-entry {
+  margin-top: 0.6rem;
+}
+
+/* Gap between consecutive individual cards that are direct section children
+   (Research, Skills, Personal Details, etc. — not inside a .resume-entry). */
+.resume-section > .line-card + .line-card {
+  margin-top: 0.35rem;
+}
+
+/* ── Field label row (label + optional edited mark) ─────────────────────── */
+.field-card-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* ── Field label ──────────────────────────────────────────────────────────── */
+.field-label {
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+  user-select: none;
+}
+
+/* ── Edited mark — now sits next to label, not in action row ─────────────── */
+.field-card-label-row .edited-mark {
+  font-size: 0.65rem;
+  color: var(--c-text-3);
+  margin-right: 0;  /* reset; no longer needs auto margin in a flex-end context */
 }
 
 /* ── Line card ────────────────────────────────────────────────────────────── */
@@ -420,10 +498,10 @@ body {
   border: 1px solid var(--c-border-light);
   border-left: 3px solid transparent;
   border-radius: var(--radius-md);
-  padding: 0.875rem 0.875rem 0.75rem;
+  padding: 0.22rem 0.6rem 0.2rem;
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
+  gap: 0.1rem;
   transition:
     border-color var(--transition),
     background var(--transition),
@@ -476,8 +554,15 @@ body {
 /* ── Line text ────────────────────────────────────────────────────────────── */
 .line-text {
   font-size: 0.875rem;
-  line-height: 1.65;
+  line-height: 1.4;
   color: var(--c-text);
+}
+
+/* Empty field placeholder — muted italic, never hidden */
+.line-text[data-empty="true"] {
+  color: var(--c-text-3);
+  font-style: italic;
+  font-size: 0.82rem;
 }
 
 /* ── Inline edit textarea ─────────────────────────────────────────────────── */
@@ -492,7 +577,7 @@ body {
   background: transparent;
   font-family: var(--font-body);
   font-size: 0.875rem;
-  line-height: 1.65;
+  line-height: 1.4;
   color: var(--c-text);
   caret-color: var(--c-accent);
   padding: 0;

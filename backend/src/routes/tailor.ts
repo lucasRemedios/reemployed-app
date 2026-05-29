@@ -1,16 +1,15 @@
 // routes/tailor.ts — the two-stage LLM pipeline.
 //
-// Stage 1: send the job posting → get a positioning strategy
-// Stage 2: send posting + background + strategy → get tailored resume lines
+// Stage 1: job posting → PositioningStrategy
+// Stage 2: posting + background + strategy → structured resume JSON
 //
-// The frontend sends one POST request and waits for the full result.
-// Both LLM calls happen here sequentially.
+// The new Stage 2 output shape is fully structured (not a flat lines array).
+// See prompts.ts and frontend/src/types.ts for the field-level contract.
 
 import { Request, Response } from 'express'
 import { callLLM } from '../llmClient'
 import { STAGE_1_SYSTEM, STAGE_1_USER, STAGE_2_SYSTEM, STAGE_2_USER } from '../prompts'
 
-// Word limits — must match the frontend constants in App.tsx
 const MAX_JOB_WORDS        = 5_000
 const MAX_BACKGROUND_WORDS = 15_000
 
@@ -29,7 +28,8 @@ function parseJson(raw: string): unknown {
   }
 }
 
-// Validate Stage 1 output shape before trusting it
+// ── Stage 1 validator ──────────────────────────────────────────────────────────
+
 function isPositioningStrategy(obj: unknown): obj is {
   roleArchetype: string
   whatRoleValues: string[]
@@ -46,45 +46,130 @@ function isPositioningStrategy(obj: unknown): obj is {
   )
 }
 
-// Validate Stage 2 output shape before trusting it.
-// postingReference and backgroundReference must be non-empty string arrays.
-function isStringArray(val: unknown): val is string[] {
-  return Array.isArray(val) && val.every(v => typeof v === 'string')
+// ── Stage 2 helpers ────────────────────────────────────────────────────────────
+
+function str(val: unknown, fallback = ''): string {
+  return typeof val === 'string' ? val : fallback
 }
 
-function isLineArray(obj: unknown): obj is Array<{
-  text: string
-  postingReference: string[]
-  backgroundReference: string[]
-  section?: string
-}> {
-  if (!Array.isArray(obj)) return false
-  return obj.every(
-    item =>
-      typeof item === 'object' &&
-      item !== null &&
-      typeof (item as Record<string, unknown>).text === 'string' &&
-      isStringArray((item as Record<string, unknown>).postingReference) &&
-      isStringArray((item as Record<string, unknown>).backgroundReference)
-  )
+function strArray(val: unknown): string[] {
+  if (!Array.isArray(val)) return []
+  return val.filter(v => typeof v === 'string') as string[]
 }
 
-// candidateHeader is optional-tolerant: if the model omits it we fall back to empty strings
-function parseCandidateHeader(obj: unknown): { name: string; contact: string; links: string } {
-  const fallback = { name: '', contact: '', links: '' }
-  if (typeof obj !== 'object' || obj === null) return fallback
-  const h = obj as Record<string, unknown>
+function parsePersonalDetails(raw: unknown): {
+  name: string; email: string; phone: string; location: string
+  website: string; linkedin: string; github: string; googleScholar: string
+} {
+  const fallback = { name: '', email: '', phone: '', location: '', website: '', linkedin: '', github: '', googleScholar: '' }
+  if (typeof raw !== 'object' || raw === null) return fallback
+  const d = raw as Record<string, unknown>
   return {
-    name:    typeof h.name    === 'string' ? h.name    : '',
-    contact: typeof h.contact === 'string' ? h.contact : '',
-    links:   typeof h.links   === 'string' ? h.links   : '',
+    name:          str(d.name),
+    email:         str(d.email),
+    phone:         str(d.phone),
+    location:      str(d.location),
+    website:       str(d.website),
+    linkedin:      str(d.linkedin),
+    github:        str(d.github),
+    googleScholar: str(d.googleScholar),
   }
 }
+
+function parseSummary(raw: unknown): {
+  text: string; postingReference: string[]; backgroundReference: string[]
+} {
+  const fallback = { text: '', postingReference: [], backgroundReference: [] }
+  if (typeof raw !== 'object' || raw === null) return fallback
+  const s = raw as Record<string, unknown>
+  return {
+    text:                str(s.text),
+    postingReference:    strArray(s.postingReference),
+    backgroundReference: strArray(s.backgroundReference),
+  }
+}
+
+function parseExperience(raw: unknown): Array<{
+  title: string; organization: string; dates: string; description: string
+  postingReference: string[]; backgroundReference: string[]
+}> {
+  if (!Array.isArray(raw)) return []
+  return raw.map(item => {
+    if (typeof item !== 'object' || item === null) return null
+    const e = item as Record<string, unknown>
+    return {
+      title:               str(e.title),
+      organization:        str(e.organization),
+      dates:               str(e.dates),
+      description:         str(e.description),
+      postingReference:    strArray(e.postingReference),
+      backgroundReference: strArray(e.backgroundReference),
+    }
+  }).filter(Boolean) as Array<{
+    title: string; organization: string; dates: string; description: string
+    postingReference: string[]; backgroundReference: string[]
+  }>
+}
+
+function parseEducation(raw: unknown): Array<{
+  degree: string; institution: string; dates: string; advisor: string; details: string
+}> {
+  if (!Array.isArray(raw)) return []
+  return raw.map(item => {
+    if (typeof item !== 'object' || item === null) return null
+    const e = item as Record<string, unknown>
+    return {
+      degree:      str(e.degree),
+      institution: str(e.institution),
+      dates:       str(e.dates),
+      advisor:     str(e.advisor),
+      details:     str(e.details),
+    }
+  }).filter(Boolean) as Array<{
+    degree: string; institution: string; dates: string; advisor: string; details: string
+  }>
+}
+
+function parseTextItems(raw: unknown): Array<{
+  text: string; postingReference: string[]; backgroundReference: string[]
+}> {
+  if (!Array.isArray(raw)) return []
+  return raw.map(item => {
+    if (typeof item !== 'object' || item === null) return null
+    const r = item as Record<string, unknown>
+    return {
+      text:                str(r.text),
+      postingReference:    strArray(r.postingReference),
+      backgroundReference: strArray(r.backgroundReference),
+    }
+  }).filter(Boolean) as Array<{
+    text: string; postingReference: string[]; backgroundReference: string[]
+  }>
+}
+
+function parseAdditional(raw: unknown): Array<{
+  section: string; text: string; postingReference: string[]; backgroundReference: string[]
+}> {
+  if (!Array.isArray(raw)) return []
+  return raw.map(item => {
+    if (typeof item !== 'object' || item === null) return null
+    const a = item as Record<string, unknown>
+    return {
+      section:             str(a.section, 'Other'),
+      text:                str(a.text),
+      postingReference:    strArray(a.postingReference),
+      backgroundReference: strArray(a.backgroundReference),
+    }
+  }).filter(Boolean) as Array<{
+    section: string; text: string; postingReference: string[]; backgroundReference: string[]
+  }>
+}
+
+// ── Handler ────────────────────────────────────────────────────────────────────
 
 export async function tailorHandler(req: Request, res: Response): Promise<void> {
   const { jobPosting, candidateBackground } = req.body as Record<string, unknown>
 
-  // ── Validate inputs ──────────────────────────────────────────────────────
   if (typeof jobPosting !== 'string' || jobPosting.trim() === '') {
     res.status(400).json({ error: 'Job posting is required.' })
     return
@@ -109,7 +194,7 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
   console.log(`[tailor] Starting pipeline | job: ${jobWords} words | background: ${bgWords} words`)
 
   try {
-    // ── Stage 1: Positioning Strategy ───────────────────────────────────────
+    // ── Stage 1 ────────────────────────────────────────────────────────────────
     console.log('[tailor] Stage 1: analysing job posting…')
     const stage1Raw    = await callLLM(STAGE_1_SYSTEM, STAGE_1_USER(jobPosting))
     const stage1Parsed = parseJson(stage1Raw)
@@ -119,24 +204,30 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
     }
     console.log('[tailor] Stage 1 complete. Archetype:', stage1Parsed.roleArchetype)
 
-    // ── Stage 2: Resume Tailoring ────────────────────────────────────────────
+    // ── Stage 2 ────────────────────────────────────────────────────────────────
     console.log('[tailor] Stage 2: writing tailored resume…')
     const stage2Raw    = await callLLM(STAGE_2_SYSTEM, STAGE_2_USER(jobPosting, candidateBackground, stage1Parsed))
     const stage2Parsed = parseJson(stage2Raw) as Record<string, unknown>
 
-    const lines = stage2Parsed.lines
-    if (!isLineArray(lines)) {
-      throw new Error('Stage 2 response did not contain a valid lines array.')
-    }
-    const candidateHeader = parseCandidateHeader(stage2Parsed.candidateHeader)
-    console.log(`[tailor] Stage 2 complete. Lines: ${lines.length} | Name extracted: "${candidateHeader.name || '(none)'}"`)
+    const personalDetails = parsePersonalDetails(stage2Parsed.personalDetails)
+    const summary         = parseSummary(stage2Parsed.summary)
+    const experience      = parseExperience(stage2Parsed.experience)
+    const education       = parseEducation(stage2Parsed.education)
+    const research        = parseTextItems(stage2Parsed.research)
+    const skills          = parseTextItems(stage2Parsed.skills)
+    const additional      = parseAdditional(stage2Parsed.additional)
 
-    // ── Return combined result ───────────────────────────────────────────────
+    console.log(
+      `[tailor] Stage 2 complete.` +
+      ` | name: "${personalDetails.name || '(none)'}"` +
+      ` | experience: ${experience.length}` +
+      ` | education: ${education.length}`
+    )
+
     res.json({
-      strategy:        stage1Parsed,
-      candidateHeader,
-      lines,
-      generatedAt:     new Date().toISOString(),
+      strategy: stage1Parsed,
+      resume: { personalDetails, summary, experience, education, research, skills, additional },
+      generatedAt: new Date().toISOString(),
     })
 
   } catch (err) {

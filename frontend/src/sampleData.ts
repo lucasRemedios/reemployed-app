@@ -1,16 +1,14 @@
 // sampleData.ts
 //
-// Three exports:
+// Exports:
 //   SAMPLE_JOB_POSTING   — pre-fills the left textarea
 //   SAMPLE_BACKGROUND    — pre-fills the middle textarea
-//   SAMPLE_LINES         — seeds the right column
+//   SAMPLE_RESUME_DATA   — seeds the right column (structured UIResumeData)
 //
-// IMPORTANT: postingReference and backgroundReference must be
-// verbatim substrings of the corresponding sample text above —
-// the highlight overlay does a literal string search to find
-// where to draw the highlight.
+// postingReference and backgroundReference must be verbatim substrings of
+// the corresponding sample text — the highlight overlay does a literal search.
 
-import type { ResumeLineItem, PositioningStrategy } from './types'
+import type { UIResumeData, UIField, UIExperienceEntry, UIEducationEntry } from './types'
 
 // ── Sample job posting ────────────────────────────────────────────────────────
 
@@ -36,8 +34,16 @@ What we're looking for
 
 // ── Sample candidate background ───────────────────────────────────────────────
 
-export const SAMPLE_BACKGROUND = `PhD, Natural Language Processing — Stanford University, 2023
+export const SAMPLE_BACKGROUND = `John Doe
+john.doe@gmail.com
+555-555-5555
+github.com/johndoe
+
+
+PhD, Natural Language Processing — Stanford University, 2023
 Dissertation: Low-Resource Sequence Modeling under Constrained Supervision
+
+Masters in CS from ohio state
 
 Research
 Four peer-reviewed papers at top NLP venues:
@@ -53,115 +59,124 @@ Built an active learning pipeline that cut annotation cost by 60% by prioritisin
 
 Collaborated with the PM and two engineering leads on a bi-weekly release cadence. Defined evaluation metrics jointly with the product team and shipped three consecutive improvements over Q3 2022.
 
+Industry: Applied Scientist, Loreston Corp (2021–2023)
+Implemented and debugged for NLP and LLM systems
+
 Technical skills
 Python, PyTorch, HuggingFace Transformers, AWS (Lambda, S3, SageMaker), Docker, SQL, Git`
 
-// ── Positioning strategy ─────────────────────────────────────────────────────
+// ── Sample resume data (UIResumeData) ─────────────────────────────────────────
 
-export const SAMPLE_STRATEGY: PositioningStrategy = {
-  roleArchetype: 'Applied Scientist at a mid-stage AI product company',
-  whatRoleValues: [
-    'End-to-end ownership: research to production',
-    'Experience deploying ML models at scale',
-    'Efficient use of annotation budget',
-    'Cross-functional collaboration',
-    'Strong publication record',
-  ],
-  fitAssessment:
-    'Strong fit on research depth and production deployment — the PhD, publication record, and Acme Corp deployment experience directly match what this role needs. The main question is whether the cross-functional collaboration signal is explicit enough; the background has it but it needs surfacing.',
-  gaps: [
-    'No explicit mention of LLM-specific work (role emphasises conversational AI)',
-    'Cloud deployment mentioned but not highlighted as a strength',
-  ],
+function field(
+  id:                  string,
+  text:                string,
+  postingReference:    string[] = [],
+  backgroundReference: string[] = [],
+): UIField {
+  return { id, text, approved: false, edited: false, postingReference, backgroundReference }
 }
 
-// ── Resume line items ─────────────────────────────────────────────────────────
-// postingReference and backgroundReference are exact verbatim substrings
-// of SAMPLE_JOB_POSTING and SAMPLE_BACKGROUND respectively.
+export const SAMPLE_RESUME_DATA: UIResumeData = {
+  personalDetails: {
+    name:          field('pd-name',     'John Doe',             [], ['John Doe']),
+    email:         field('pd-email',    'john.doe@gmail.com',   [], ['john.doe@gmail.com']),
+    phone:         field('pd-phone',    '555-555-5555',         [], ['555-555-5555']),
+    location:      field('pd-location', ''),
+    website:       field('pd-website',  ''),
+    linkedin:      field('pd-linkedin', ''),
+    github:        field('pd-github',   'github.com/johndoe',   [], ['github.com/johndoe']),
+    googleScholar: field('pd-scholar',  ''),
+  },
 
-export const SAMPLE_LINES: ResumeLineItem[] = [
-  {
-    id: 'sum-1',
-    section: 'Summary',
-    text: 'NLP researcher and engineer with 6 years of experience — from PhD-level modeling to production systems serving millions of users daily.',
-    postingReference: [
+  summary: field(
+    'sum-0',
+    'NLP researcher and engineer with experience spanning PhD-level modeling, production systems serving millions of users, and cross-functional collaboration.',
+    [
       'move from research idea to shipped feature',
       'Deploy and monitor ML models serving millions of daily requests',
     ],
-    backgroundReference: [
+    [
       'PhD, Natural Language Processing — Stanford University, 2023',
       'ship it on AWS Lambda with int8 quantization — 2M daily requests, under 40ms p99 latency',
     ],
-    approved: false,
-    edited: false,
-  },
-  {
-    id: 'exp-1',
-    section: 'Experience',
-    text: 'Designed and shipped a BERT-based content moderation classifier handling 2M daily requests at under 40ms p99 latency on AWS Lambda.',
-    postingReference: [
-      'Experience deploying ML models to production at scale',
-      'Cloud deployment experience (AWS or GCP) is a plus',
-    ],
-    backgroundReference: [
-      'ship it on AWS Lambda with int8 quantization — 2M daily requests, under 40ms p99 latency',
-    ],
-    approved: false,
-    edited: false,
-  },
-  {
-    id: 'exp-2',
-    section: 'Experience',
-    text: 'Reduced annotation cost by 60% through an active-learning pipeline that prioritised uncertain examples — cutting labelling hours from 400 to 160 for equivalent model quality.',
-    postingReference: [
-      'We value efficient use of our annotation and labeling budget',
-    ],
-    backgroundReference: [
-      'cut annotation cost by 60% by prioritising the most uncertain examples for human review',
-      'We went from 400 labelling hours to 160 for equivalent model quality',
-    ],
-    approved: false,
-    edited: false,
-  },
-  {
-    id: 'exp-3',
-    section: 'Experience',
-    text: 'Collaborated with PM and engineering leads on a bi-weekly release cycle — defining evaluation metrics jointly and shipping three consecutive model improvements.',
-    postingReference: [
-      'Work closely with product and engineering on evaluation criteria and release cycles',
-    ],
-    backgroundReference: [
-      'Collaborated with the PM and two engineering leads on a bi-weekly release cadence',
-      'Defined evaluation metrics jointly with the product team and shipped three consecutive improvements',
-    ],
-    approved: false,
-    edited: false,
-  },
-  {
-    id: 'res-1',
-    section: 'Research',
-    text: 'Published 4 papers on low-resource NLP at ACL and EMNLP; lead paper cited 230+ times within two years of publication.',
-    postingReference: [
-      'publications at venues like ACL, EMNLP, or NeurIPS are a strong plus',
-      'Engage with the academic literature and bring relevant ideas into production',
-    ],
-    backgroundReference: [
-      '"Efficient Active Learning for Low-Resource NER", ACL 2021 (cited 230+ times)',
-    ],
-    approved: false,
-    edited: false,
-  },
-  {
-    id: 'skl-1',
-    section: 'Skills',
-    text: 'Python · PyTorch · HuggingFace Transformers · AWS (Lambda, S3, SageMaker) · Docker · SQL · Git',
-    postingReference: [
-      'Strong Python skills and experience with PyTorch and the HuggingFace ecosystem',
-    ],
-    backgroundReference: [
-      'Python, PyTorch, HuggingFace Transformers, AWS (Lambda, S3, SageMaker), Docker, SQL, Git',
-    ],
-    approved: false,
-    edited: false,
-  },
-]
+  ),
+
+  experience: [
+    ((): UIExperienceEntry => ({
+      id:           'exp-0',
+      title:        field('exp-0-title', 'Applied Scientist'),
+      organization: field('exp-0-org',   'Acme Corp'),
+      dates:        field('exp-0-dates',  '2021–2023'),
+      description:  field(
+        'exp-0-desc',
+        'Designed and shipped a BERT-based content moderation classifier handling 2M daily requests at under 40ms p99 latency on AWS Lambda.\nReduced annotation cost by 60% through an active-learning pipeline that prioritised uncertain examples — cutting labelling hours from 400 to 160 for equivalent model quality.\nCollaborated with PM and engineering leads on a bi-weekly release cycle — defining evaluation metrics jointly and shipping three consecutive model improvements.',
+        [
+          'Experience deploying ML models to production at scale',
+          'We value efficient use of our annotation and labeling budget',
+          'Work closely with product and engineering on evaluation criteria and release cycles',
+        ],
+        [
+          'ship it on AWS Lambda with int8 quantization — 2M daily requests, under 40ms p99 latency',
+          'cut annotation cost by 60% by prioritising the most uncertain examples for human review',
+          'Collaborated with the PM and two engineering leads on a bi-weekly release cadence',
+        ],
+      ),
+    }))(),
+    ((): UIExperienceEntry => ({
+      id:           'exp-1',
+      title:        field('exp-1-title', 'Applied Scientist'),
+      organization: field('exp-1-org',   'Loreston Corp'),
+      dates:        field('exp-1-dates',  '2021–2023'),
+      description:  field(
+        'exp-1-desc',
+        'Implemented and debugged NLP and LLM systems.',
+        ['Design and run experiments on large-scale NLP and LLM systems'],
+        ['Implemented and debugged for NLP and LLM systems'],
+      ),
+    }))(),
+  ],
+
+  education: [
+    ((): UIEducationEntry => ({
+      id:          'edu-0',
+      degree:      field('edu-0-degree',  'PhD, Natural Language Processing'),
+      institution: field('edu-0-inst',    'Stanford University'),
+      dates:       field('edu-0-dates',   '2023'),
+      advisor:     field('edu-0-advisor', ''),
+      details:     field('edu-0-details', 'Dissertation: Low-Resource Sequence Modeling under Constrained Supervision'),
+    }))(),
+    ((): UIEducationEntry => ({
+      id:          'edu-1',
+      degree:      field('edu-1-degree',  'Masters in CS'),
+      institution: field('edu-1-inst',    'Ohio State'),
+      dates:       field('edu-1-dates',   ''),
+      advisor:     field('edu-1-advisor', ''),
+      details:     field('edu-1-details', ''),
+    }))(),
+  ],
+
+  research: [
+    field(
+      'res-0',
+      'Published 4 papers on low-resource NLP at ACL and EMNLP; lead paper cited 230+ times within two years of publication.',
+      [
+        'publications at venues like ACL, EMNLP, or NeurIPS are a strong plus',
+        'Engage with the academic literature and bring relevant ideas into production',
+      ],
+      [
+        '"Efficient Active Learning for Low-Resource NER", ACL 2021 (cited 230+ times)',
+      ],
+    ),
+  ],
+
+  skills: [
+    field(
+      'skl-0',
+      'Python · PyTorch · HuggingFace Transformers · AWS (Lambda, S3, SageMaker) · Docker · SQL · Git',
+      ['Strong Python skills and experience with PyTorch and the HuggingFace ecosystem'],
+      ['Python, PyTorch, HuggingFace Transformers, AWS (Lambda, S3, SageMaker), Docker, SQL, Git'],
+    ),
+  ],
+
+  additional: [],
+}

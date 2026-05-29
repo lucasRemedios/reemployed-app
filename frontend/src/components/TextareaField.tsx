@@ -171,17 +171,17 @@ export const TextareaField = forwardRef<TextareaFieldHandle, TextareaFieldProps>
     return (
       <div className="textarea-field">
         <div className="textarea-header">
-          <div>
+          <div className="textarea-header-top">
             <h2 className="column-label">{label}</h2>
-            <p className="column-hint">{hint}</p>
+            <span
+              className="char-counter"
+              data-near={isNearLimit}
+              data-over={isAtLimit}
+            >
+              {wordCount.toLocaleString()} / {maxWords.toLocaleString()} words
+            </span>
           </div>
-          <span
-            className="char-counter"
-            data-near={isNearLimit}
-            data-over={isAtLimit}
-          >
-            {wordCount.toLocaleString()} / {maxWords.toLocaleString()} words
-          </span>
+          <p className="column-hint">{hint}</p>
         </div>
 
         <div className="textarea-wrapper">

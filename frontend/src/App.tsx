@@ -1,11 +1,14 @@
 // App.tsx — root component and single source of truth.
 //
-// Hover highlighting works via refs, not state:
-//   jobPostingFieldRef.current.setHighlight(text)  ← direct DOM call
-//   backgroundFieldRef.current.setHighlight(text)  ← direct DOM call
+// State shape change (Structured Fields Refactor):
+//   OLD: resumeLines: ResumeLineItem[]  (flat array)
+//   NEW: resumeData:  UIResumeData | null  (structured object)
 //
-// This means hover events never cause App (or the TextareaFields) to re-render.
-// The textarea text content is completely stable during hover.
+// Hover highlighting: still ref-based (no re-renders).
+//   onFieldHover(field) → field.postingReference / field.backgroundReference
+//
+// Approve-all gate:
+//   Only non-empty fields count. Empty fields (text === '') are always skipped.
 
 import { useState, useRef }      from 'react'
 import { TextareaField }         from './components/TextareaField'
@@ -15,64 +18,208 @@ import { computePageEstimate }   from './utils/pageEstimate'
 import {
   SAMPLE_JOB_POSTING,
   SAMPLE_BACKGROUND,
-  SAMPLE_LINES,
+  SAMPLE_RESUME_DATA,
 } from './sampleData'
-import type { ResumeLineItem, AppStatus, CandidateHeader } from './types'
+import type {
+  UIField, UIResumeData, UIExperienceEntry, UIEducationEntry,
+  UIAdditionalEntry, AppStatus,
+} from './types'
 
-// Helper: turn the LLM-extracted header into regular line items so they get
-// the same edit/approve treatment as every other resume line.
-function headerToLines(h: CandidateHeader): ResumeLineItem[] {
-  const items: ResumeLineItem[] = []
-  const make = (id: string, text: string): ResumeLineItem => ({
-    id, text, section: 'Personal Details',
-    postingReference: [], backgroundReference: [],
-    approved: false, edited: false,
-  })
-  if (h.name?.trim())    items.push(make('pd-name',    h.name.trim()))
-  if (h.contact?.trim()) items.push(make('pd-contact', h.contact.trim()))
-  if (h.links?.trim())   items.push(make('pd-links',   h.links.trim()))
-  return items
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function makeField(
+  id: string,
+  text: string,
+  postingReference:    string[] = [],
+  backgroundReference: string[] = [],
+): UIField {
+  return { id, text, approved: false, edited: false, postingReference, backgroundReference }
 }
+
+// Convert the raw API response (from /api/tailor) into the frontend UIResumeData shape.
+function convertApiToUIData(api: {
+  personalDetails: { name: string; email: string; phone: string; location: string; website: string; linkedin: string; github: string; googleScholar: string }
+  summary:         { text: string; postingReference: string[]; backgroundReference: string[] }
+  experience:      Array<{ title: string; organization: string; dates: string; description: string; postingReference: string[]; backgroundReference: string[] }>
+  education:       Array<{ degree: string; institution: string; dates: string; advisor: string; details: string }>
+  research:        Array<{ text: string; postingReference: string[]; backgroundReference: string[] }>
+  skills:          Array<{ text: string; postingReference: string[]; backgroundReference: string[] }>
+  additional:      Array<{ section: string; text: string; postingReference: string[]; backgroundReference: string[] }>
+}): UIResumeData {
+  const pd = api.personalDetails
+  return {
+    personalDetails: {
+      name:          makeField('pd-name',     pd.name),
+      email:         makeField('pd-email',    pd.email),
+      phone:         makeField('pd-phone',    pd.phone),
+      location:      makeField('pd-location', pd.location),
+      website:       makeField('pd-website',  pd.website),
+      linkedin:      makeField('pd-linkedin', pd.linkedin),
+      github:        makeField('pd-github',   pd.github),
+      googleScholar: makeField('pd-scholar',  pd.googleScholar),
+    },
+    summary: makeField('sum-0', api.summary.text, api.summary.postingReference, api.summary.backgroundReference),
+    experience: api.experience.map((e, i): UIExperienceEntry => ({
+      id:           `exp-${i}`,
+      title:        makeField(`exp-${i}-title`, e.title,        e.postingReference, e.backgroundReference),
+      organization: makeField(`exp-${i}-org`,   e.organization),
+      dates:        makeField(`exp-${i}-dates`,  e.dates),
+      description:  makeField(`exp-${i}-desc`,   e.description,  e.postingReference, e.backgroundReference),
+    })),
+    education: api.education.map((e, i): UIEducationEntry => ({
+      id:          `edu-${i}`,
+      degree:      makeField(`edu-${i}-degree`, e.degree),
+      institution: makeField(`edu-${i}-inst`,   e.institution),
+      dates:       makeField(`edu-${i}-dates`,  e.dates),
+      advisor:     makeField(`edu-${i}-advisor`,e.advisor),
+      details:     makeField(`edu-${i}-details`,e.details),
+    })),
+    research: api.research.map((r, i) =>
+      makeField(`res-${i}`, r.text, r.postingReference, r.backgroundReference)
+    ),
+    skills: api.skills.map((s, i) =>
+      makeField(`skl-${i}`, s.text, s.postingReference, s.backgroundReference)
+    ),
+    additional: api.additional.map((a, i): UIAdditionalEntry => ({
+      ...makeField(`add-${i}`, a.text, a.postingReference, a.backgroundReference),
+      section: a.section,
+    })),
+  }
+}
+
+// Walk the entire UIResumeData tree and apply `update` to the field whose id matches.
+function updateFieldById(
+  data: UIResumeData,
+  id:   string,
+  update: (f: UIField) => UIField,
+): UIResumeData {
+  const u = (f: UIField) => f.id === id ? update(f) : f
+  return {
+    ...data,
+    personalDetails: {
+      name:          u(data.personalDetails.name),
+      email:         u(data.personalDetails.email),
+      phone:         u(data.personalDetails.phone),
+      location:      u(data.personalDetails.location),
+      website:       u(data.personalDetails.website),
+      linkedin:      u(data.personalDetails.linkedin),
+      github:        u(data.personalDetails.github),
+      googleScholar: u(data.personalDetails.googleScholar),
+    },
+    summary: u(data.summary),
+    experience: data.experience.map(e => ({
+      ...e,
+      title:        u(e.title),
+      organization: u(e.organization),
+      dates:        u(e.dates),
+      description:  u(e.description),
+    })),
+    education: data.education.map(e => ({
+      ...e,
+      degree:      u(e.degree),
+      institution: u(e.institution),
+      dates:       u(e.dates),
+      advisor:     u(e.advisor),
+      details:     u(e.details),
+    })),
+    research:   data.research.map(u),
+    skills:     data.skills.map(u),
+    additional: data.additional.map(f => ({ ...u(f), section: f.section })),
+  }
+}
+
+// Flatten all UIFields from a UIResumeData tree.
+function getAllFields(data: UIResumeData): UIField[] {
+  return [
+    ...Object.values(data.personalDetails) as UIField[],
+    data.summary,
+    ...data.experience.flatMap(e => [e.title, e.organization, e.dates, e.description]),
+    ...data.education.flatMap(e => [e.degree, e.institution, e.dates, e.advisor, e.details]),
+    ...data.research,
+    ...data.skills,
+    ...data.additional,
+  ]
+}
+
+// Build the structured export request from the current (fully-approved) UIResumeData.
+function buildExportBody(data: UIResumeData, estimatedPages: number) {
+  const t = (f: UIField) => f.text
+  return {
+    personalDetails: {
+      name:          t(data.personalDetails.name),
+      email:         t(data.personalDetails.email),
+      phone:         t(data.personalDetails.phone),
+      location:      t(data.personalDetails.location),
+      website:       t(data.personalDetails.website),
+      linkedin:      t(data.personalDetails.linkedin),
+      github:        t(data.personalDetails.github),
+      googleScholar: t(data.personalDetails.googleScholar),
+    },
+    summary: t(data.summary),
+    experience: data.experience.map(e => ({
+      title:        t(e.title),
+      organization: t(e.organization),
+      dates:        t(e.dates),
+      description:  t(e.description),
+    })),
+    education: data.education.map(e => ({
+      degree:      t(e.degree),
+      institution: t(e.institution),
+      dates:       t(e.dates),
+      advisor:     t(e.advisor),
+      details:     t(e.details),
+    })),
+    research:   data.research.map(t),
+    skills:     data.skills.map(t),
+    additional: data.additional.map(f => ({ section: f.section, text: t(f) })),
+    estimatedPages,
+  }
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const MAX_JOB_WORDS        = 5_000
 const MAX_BACKGROUND_WORDS = 15_000
 
-// Download button has its own mini-state machine separate from the tailor status
 type DownloadStatus = 'idle' | 'loading' | 'success'
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function App() {
   const [jobPosting,  setJobPosting]  = useState(SAMPLE_JOB_POSTING)
   const [background,  setBackground]  = useState(SAMPLE_BACKGROUND)
-  const [resumeLines, setResumeLines] = useState<ResumeLineItem[]>(SAMPLE_LINES)
+  const [resumeData,  setResumeData]  = useState<UIResumeData | null>(SAMPLE_RESUME_DATA)
   const [status,      setStatus]      = useState<AppStatus>({ kind: 'idle' })
-
   const [downloadStatus, setDownloadStatus] = useState<DownloadStatus>('idle')
 
-  // Refs to the two textarea fields — used to push highlight updates
-  // directly into the DOM without going through React state/props.
   const jobPostingFieldRef = useRef<TextareaFieldHandle>(null)
   const backgroundFieldRef = useRef<TextareaFieldHandle>(null)
 
-  // Called by ResumeColumn on mouse-enter/leave.
-  // Directly calls setHighlight on each field — no state change, no re-render.
-  function handleLineHover(line: ResumeLineItem | null) {
-    jobPostingFieldRef.current?.setHighlight(line?.postingReference  ?? null)
-    backgroundFieldRef.current?.setHighlight(line?.backgroundReference ?? null)
+  function handleFieldHover(field: UIField | null) {
+    jobPostingFieldRef.current?.setHighlight(field?.postingReference  ?? null)
+    backgroundFieldRef.current?.setHighlight(field?.backgroundReference ?? null)
   }
 
-  const isLoading     = status.kind === 'loading'
-  const approvedCount = resumeLines.filter(l => l.approved).length
-  const totalCount    = resumeLines.length
+  // ── Approve-all gate ───────────────────────────────────────────────────────
+  // Empty fields (text === '') never count — user doesn't need to approve blanks.
+  const allFields       = resumeData ? getAllFields(resumeData) : []
+  const nonEmptyFields  = allFields.filter(f => f.text.trim() !== '')
+  const approvedCount   = nonEmptyFields.filter(f => f.approved).length
+  const totalCount      = nonEmptyFields.length
+  const allApproved     = totalCount > 0 && approvedCount === totalCount
 
-  // Live page estimate — recomputes whenever any line is approved, rejected, or edited.
-  // Passed to ResumeColumn for display and to the export fetch as a backend hint.
-  const estimatedPages = computePageEstimate(resumeLines)
+  const isLoading        = status.kind === 'loading'
+  const estimatedPages   = resumeData ? computePageEstimate(resumeData) : 0
+
+  // ── Input validation ───────────────────────────────────────────────────────
 
   function validateInputs(): string | null {
     if (!jobPosting.trim())  return 'Please paste a job posting before tailoring.'
     if (!background.trim())  return 'Please paste your background before tailoring.'
     return null
   }
+
+  // ── Tailor ────────────────────────────────────────────────────────────────
 
   async function handleTailorClick() {
     const validationError = validateInputs()
@@ -81,7 +228,6 @@ export default function App() {
       return
     }
 
-    // Clear any active highlights before loading
     jobPostingFieldRef.current?.setHighlight(null)
     backgroundFieldRef.current?.setHighlight(null)
     setStatus({ kind: 'loading', stage: 1 })
@@ -99,28 +245,8 @@ export default function App() {
         throw new Error(typeof data.error === 'string' ? data.error : 'Server error')
       }
 
-      const rawLines = data.lines as Array<{
-        text: string
-        postingReference: string[]
-        backgroundReference: string[]
-        section?: string
-      }>
-
-      const lines: ResumeLineItem[] = rawLines.map((line, i) => ({
-        id:                  `line-${i}`,
-        text:                line.text,
-        postingReference:    line.postingReference,
-        backgroundReference: line.backgroundReference,
-        section:             line.section,
-        approved:            false,
-        edited:              false,
-      }))
-
-      // Convert extracted header into Personal Details line items and prepend
-      const header = data.candidateHeader as CandidateHeader | undefined
-      const allLines = header ? [...headerToLines(header), ...lines] : lines
-
-      setResumeLines(allLines)
+      const resume = data.resume as Parameters<typeof convertApiToUIData>[0]
+      setResumeData(convertApiToUIData(resume))
       setStatus({ kind: 'done' })
 
     } catch (err) {
@@ -129,32 +255,41 @@ export default function App() {
     }
   }
 
-  // Collect approved lines, POST to /api/export, receive the binary .docx,
-  // and trigger a browser download — no page navigation, no new tab.
-  async function handleDownloadClick() {
-    const approvedLines = resumeLines.filter(l => l.approved)
-    if (!approvedLines.length) return
+  // ── Field callbacks ────────────────────────────────────────────────────────
 
+  // Section-level approval: set all listed field IDs to the target approved state.
+  function handleApproveSection(ids: string[], approved: boolean) {
+    setResumeData(prev => {
+      if (!prev) return prev
+      let data = prev
+      for (const id of ids) {
+        data = updateFieldById(data, id, f => ({ ...f, approved }))
+      }
+      return data
+    })
+  }
+
+  function handleSave(id: string, newText: string) {
+    setResumeData(prev =>
+      prev ? updateFieldById(prev, id, f => ({ ...f, text: newText, edited: true })) : prev
+    )
+  }
+
+  // ── Download ───────────────────────────────────────────────────────────────
+
+  async function handleDownloadClick() {
+    if (!resumeData || !allApproved) return
     setDownloadStatus('loading')
 
     try {
       const response = await fetch('/api/export', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          name:    '',   // Personal Details are inside the lines array now
-          contact: '',
-          links:   '',
-          lines:   approvedLines,
-          estimatedPages,
-        }),
+        body:    JSON.stringify(buildExportBody(resumeData, estimatedPages)),
       })
 
-      if (!response.ok) {
-        throw new Error('Export failed — please try again.')
-      }
+      if (!response.ok) throw new Error('Export failed — please try again.')
 
-      // Receive binary blob and trigger download via a temporary anchor element
       const blob      = await response.blob()
       const objectUrl = URL.createObjectURL(blob)
       const anchor    = document.createElement('a')
@@ -164,7 +299,6 @@ export default function App() {
       URL.revokeObjectURL(objectUrl)
 
       setDownloadStatus('success')
-      // Flash "Downloaded ✓" for 2 seconds then return to idle
       setTimeout(() => setDownloadStatus('idle'), 2000)
 
     } catch (err) {
@@ -173,20 +307,19 @@ export default function App() {
     }
   }
 
-  // Download requires every line to be approved — not just some
-  const allApproved      = totalCount > 0 && approvedCount === totalCount
   const downloadDisabled = !allApproved || downloadStatus === 'loading'
   const downloadLabel    =
     downloadStatus === 'loading' ? 'Downloading…' :
     downloadStatus === 'success' ? 'Downloaded ✓' :
     'Download Resume'
 
-  // Tooltip explains why the button is disabled
   const downloadTitle = !allApproved
     ? totalCount === 0
       ? 'Tailor your resume first'
-      : `Approve all ${totalCount} lines to download`
+      : `Approve all ${totalCount} fields to download`
     : undefined
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="app-shell">
@@ -231,21 +364,25 @@ export default function App() {
         </section>
 
         <section className="workspace-column workspace-column--output">
-          <ResumeColumn
-            lines={resumeLines}
-            estimatedPages={estimatedPages}
-            onApprove={(id) =>
-              setResumeLines(prev =>
-                prev.map(l => l.id === id ? { ...l, approved: !l.approved } : l)
-              )
-            }
-            onSave={(id, newText) =>
-              setResumeLines(prev =>
-                prev.map(l => l.id === id ? { ...l, text: newText, edited: true } : l)
-              )
-            }
-            onLineHover={handleLineHover}
-          />
+          {resumeData ? (
+            <ResumeColumn
+              data={resumeData}
+              estimatedPages={estimatedPages}
+              onApproveSection={handleApproveSection}
+              onSave={handleSave}
+              onFieldHover={handleFieldHover}
+            />
+          ) : (
+            <div className="resume-column resume-column--empty">
+              <div className="resume-empty-state">
+                <span className="resume-empty-icon">◎</span>
+                <p className="resume-empty-title">Your tailored resume will appear here</p>
+                <p className="resume-empty-hint">
+                  Paste a job posting and your background, then click Tailor Resume.
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
       </main>
@@ -265,7 +402,6 @@ export default function App() {
           {!isLoading && <span className="button-arrow" aria-hidden>→</span>}
         </button>
 
-        {/* Download — only enabled once every line in the column is approved */}
         <button
           className="download-button"
           onClick={handleDownloadClick}

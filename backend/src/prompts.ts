@@ -1,17 +1,9 @@
-// prompts.ts — the Stage 1 and Stage 2 prompt templates.
+// prompts.ts — Stage 1 and Stage 2 prompt templates.
 //
-// These are the most important strings in the application.
-// Edit them freely to tune the quality of the output.
-//
+// Edit freely to tune output quality.
 // Both prompts instruct the model to return JSON only.
-// The exact field names here must match the TypeScript types in types.ts.
 
 // ── Stage 1: Positioning Strategy ────────────────────────────────────────────
-// Input:  job posting text
-// Output: PositioningStrategy JSON
-//
-// Goal: understand the role deeply before touching the candidate's background.
-// This stage must NOT see the background — it analyses the role on its own merits.
 
 export const STAGE_1_SYSTEM = `You are an expert career strategist analysing a job posting.
 Your job is to extract a precise positioning strategy — not generic advice, but a specific read of what this particular role actually values and who would genuinely succeed in it.
@@ -34,11 +26,6 @@ ${jobPosting}
 ---`
 
 // ── Stage 2: Resume Tailoring ─────────────────────────────────────────────────
-// Input:  job posting + candidate background + Stage 1 strategy
-// Output: array of ResumeLineItem-shaped objects
-//
-// The non-invention rule is the most important constraint.
-// Every claim must be traceable to the background — nothing fabricated.
 //
 // CRITICAL for the highlight UI to work:
 //   postingReference  must be a verbatim substring of the job posting text
@@ -49,48 +36,75 @@ export const STAGE_2_SYSTEM = `You are an expert resume writer. You tailor resum
 Return a JSON object with exactly this structure:
 
 {
-  "candidateHeader": {
+  "personalDetails": {
     "name": "The candidate's full name, exactly as written in the background. Empty string if not found.",
-    "contact": "Email, phone, and location on one line separated by ' · ', exactly as written. Empty string if not found.",
-    "links": "LinkedIn, GitHub, website, or other profile links on one line separated by ' · ', exactly as written. Empty string if not found."
+    "email": "Email address exactly as written. Empty string if not found.",
+    "phone": "Phone number exactly as written. Empty string if not found.",
+    "location": "City, state or region exactly as written. Empty string if not found.",
+    "website": "Personal website URL exactly as written. Empty string if not found.",
+    "linkedin": "LinkedIn URL or handle exactly as written. Empty string if not found.",
+    "github": "GitHub URL or handle exactly as written. Empty string if not found.",
+    "googleScholar": "Google Scholar name or URL exactly as written. Empty string if not found."
   },
-  "lines": [
+  "summary": {
+    "text": "The tailored summary paragraph or sentences. Empty string if not applicable.",
+    "postingReference": ["Verbatim excerpt from the job posting that this summary addresses."],
+    "backgroundReference": ["Verbatim excerpt from the background that grounds this summary."]
+  },
+  "experience": [
     {
-      "text": "The tailored resume line. Concrete, specific, and directly relevant to the role.",
-      "postingReference": [
-        "Verbatim excerpt from the job posting that this line addresses.",
-        "A second verbatim excerpt if this line responds to more than one requirement."
-      ],
-      "backgroundReference": [
-        "Verbatim excerpt from the background that grounds this line.",
-        "A second verbatim excerpt if this line draws on more than one experience or fact."
-      ],
-      "section": "One of: Summary, Experience, Research, Education, Skills"
+      "title": "Job title exactly as written in background. Empty string if not found.",
+      "organization": "Organization or company name exactly as written. Empty string if not found.",
+      "dates": "Date range exactly as written in background. Empty string if not found.",
+      "description": "Tailored description of this role. Use newline characters (\\n) to separate multiple points. Each point should be a concrete achievement or responsibility grounded in the candidate's actual experience. Empty string if not applicable.",
+      "postingReference": ["Verbatim excerpts from the job posting that this role addresses."],
+      "backgroundReference": ["Verbatim excerpts from the background that ground this entry."]
+    }
+  ],
+  "education": [
+    {
+      "degree": "Degree exactly as written in background. Empty string if not found.",
+      "institution": "Institution exactly as written. Empty string if not found.",
+      "dates": "Dates exactly as written. Empty string if not found.",
+      "advisor": "Advisor name exactly as written. Empty string if not found.",
+      "details": "Any additional details (dissertation, thesis, GPA) exactly as written. Empty string if not found."
+    }
+  ],
+  "research": [
+    {
+      "text": "Research line if relevant to the role.",
+      "postingReference": ["Verbatim excerpts from the job posting."],
+      "backgroundReference": ["Verbatim excerpts from the background."]
+    }
+  ],
+  "skills": [
+    {
+      "text": "Skills line if relevant. Use ' · ' to separate items.",
+      "postingReference": ["Verbatim excerpts from the job posting."],
+      "backgroundReference": ["Verbatim excerpts from the background."]
+    }
+  ],
+  "additional": [
+    {
+      "section": "Section name, e.g. Publications, Projects, Certifications, Volunteer",
+      "text": "Content for this section.",
+      "postingReference": ["Verbatim excerpts from the job posting."],
+      "backgroundReference": ["Verbatim excerpts from the background."]
     }
   ]
 }
 
 Rules:
-0. For candidateHeader: copy values verbatim from the background — do not reformat, paraphrase, or invent. Use empty string for any field not explicitly present.
-1. Only use information from the candidate's background. Do not invent anything.
-2. Every string in postingReference must be copied verbatim (word-for-word) from the job posting.
-3. Every string in backgroundReference must be copied verbatim (word-for-word) from the background.
-4. Include ALL posting requirements and background facts that contributed to each line — not just one.
-   A line that addresses two requirements should have two entries in postingReference.
-5. For each tailored Experience line, do not perform literal translation of what the candidate did.
-   Instead: identify the underlying transferable theme or skill that connects the candidate's specific
-   experience to what this role values. Then express that line in terms of the general theme, grounded
-   in the candidate's specific evidence. Example: if the candidate worked with physician-scientists and
-   the role values cross-functional collaboration, the line should express cross-functional collaboration
-   and use the physician-scientist work as the specific evidence — not just mention physicians.
-6. For the Education section: do not rewrite, summarize, or editorialize. Preserve the candidate's
-   education entries exactly as stated — degree, institution, years or dates, and any details like
-   advisor or thesis. Format them cleanly as resume-style bullet points. The only transformation
-   allowed is standardizing formatting (e.g. converting narrative text to a clean bullet) — never
-   change the substance, add interpretation, or infer additional context.
-7. Include: 1 Summary line, 3–5 Experience bullets, relevant Research/Education/Skills lines.
-8. Make lines specific and concrete — avoid generic phrases like "strong communicator."
-9. Order lines logically: Summary → Experience → Research → Education → Skills.
+0. personalDetails: copy every field verbatim from the background. Never reformat or infer. Use empty string for any field not explicitly present in the background.
+1. experience: include EVERY role listed in the candidate's background. Never omit, merge, or consolidate roles. If the background lists 3 positions, the experience array must have 3 entries.
+2. For each experience entry: copy title, organization, and dates verbatim from the background. Never drop dates. The description should be tailored to the role but grounded in the candidate's actual experience. Separate description points with \\n.
+3. education: include EVERY education entry listed in the background. Copy degree, institution, dates, advisor, and details verbatim. Never drop or reformat.
+4. summary: tailor to the specific role. Preserve specific findings, numbers, and named details from the background — do not substitute generic descriptions for concrete evidence.
+5. research and skills: include only if genuinely relevant. Omit the array entirely (return []) if not applicable.
+6. additional: use for any other relevant sections (Publications, Projects, Certifications, Volunteer). Return [] if nothing applies.
+7. postingReference strings must be verbatim substrings of the job posting text.
+8. backgroundReference strings must be verbatim substrings of the background text.
+9. Never invent, embellish, or add anything not present in the candidate's background.
 
 Return valid JSON only. No markdown, no explanation outside the JSON.`
 
@@ -113,4 +127,4 @@ Here is the positioning strategy (from Stage 1 analysis):
 ${JSON.stringify(strategy, null, 2)}
 ---
 
-Write the tailored resume lines as JSON.`
+Write the tailored resume as JSON.`
