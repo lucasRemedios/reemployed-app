@@ -91,7 +91,8 @@ function SectionBlock({ title, sectionFields, onApproveSection, children }: Sect
             data-approved={approved}
             onClick={() => onApproveSection(sectionFields.map(f => f.id), !approved)}
           >
-            {approved ? '🔒 Approved' : '🔓 Approve'}
+            <span className="approve-lock">{approved ? '🔒' : '🔓'}</span>
+            {approved ? ' Approved' : ' Approve'}
           </button>
         )}
       </div>

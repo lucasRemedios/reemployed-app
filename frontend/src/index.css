@@ -412,6 +412,15 @@ body {
   color: var(--c-accent);
 }
 
+/* Lock emoji inside the approve button — forced white to match button text */
+.approve-lock {
+  display: inline-block;
+  filter: brightness(0) invert(1);   /* collapses emoji colour to white */
+  font-size: 0.85em;
+  vertical-align: middle;
+  margin-right: 0.1em;
+}
+
 /* ── Section header row: title + approve button ───────────────────────────── */
 .resume-section-header {
   display: flex;
@@ -539,18 +548,17 @@ body {
   box-shadow: 0 0 0 2px rgba(42, 96, 73, 0.08);
 }
 
-/* ── Pencil affordance ────────────────────────────────────────────────────── */
+/* ── Pencil affordance — inline with label text ───────────────────────────── */
 .pencil-icon {
-  position: absolute;
-  top: 0.55rem;
-  right: 0.65rem;
-  font-size: 0.75rem;
-  color: var(--c-text-3);
-  opacity: 0;              /* hidden by default (approved + editing cards keep it hidden) */
+  /* Sits inline in .field-card-label-row, immediately right of the label text */
+  font-size: 0.6rem;        /* matches .field-label so it reads as one unit */
+  color: var(--c-text-3);   /* identical to label color */
+  opacity: 0;               /* hidden by default; approved + editing cards keep it hidden */
   transition: opacity var(--transition);
   pointer-events: none;
   user-select: none;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 /* Always subtly visible on editable (non-approved, non-editing) cards */
