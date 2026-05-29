@@ -1,0 +1,14 @@
+# Dependencies — reinstalled inside the image by npm ci
+node_modules
+
+# Compiled output — rebuilt inside the image by npm run build
+dist
+
+# Environment variables — injected at runtime by Railway, never baked in
+.env
+.env.local
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__/
