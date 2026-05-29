@@ -13,6 +13,9 @@ backend/dist/
 # Copy prompts.local.example.ts → prompts.local.ts to get started
 *.local.ts
 
+# Supabase CLI runtime state — not source, should not be tracked
+supabase/.temp/
+
 # Editor/OS noise
 .DS_Store
 *.swp
