@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: reemployed-backend
+    runtime: docker
+    rootDir: backend          # build context — Dockerfile paths resolve relative to here
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: NODE_ENV
+        value: production
