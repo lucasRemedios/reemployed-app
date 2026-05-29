@@ -421,29 +421,36 @@ body {
   border-bottom: 1px solid var(--c-accent-light);
 }
 
-/* Section-level approve button */
+/* Section-level approve button — solid green in both states; only text/icon differs.
+   min-width is sized to the wider "✓ Approved" label so clicking never resizes the button. */
 .section-approve-btn {
   font-family: var(--font-body);
   font-size: 0.72rem;
   font-weight: 600;
-  padding: 0.18rem 0.55rem;
+  padding: 0.18rem 0.6rem;
+  min-width: 5.8rem;          /* holds "✓ Approved" without reflow */
+  text-align: center;
   border-radius: var(--radius-sm);
   border: none;
   cursor: pointer;
-  background: var(--c-accent-light);
-  color: var(--c-accent);
+  background: var(--c-accent);
+  color: #fff;
   flex-shrink: 0;
-  transition: background var(--transition), color var(--transition);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+  transition: background var(--transition), box-shadow var(--transition);
 }
 .section-approve-btn:hover {
-  background: #C8E6D5;
+  background: var(--c-accent-hover);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.22);
 }
+/* Approved state — same solid green; the ✓ text + locked cards signal completion */
 .section-approve-btn[data-approved="true"] {
   background: var(--c-accent);
   color: #fff;
 }
 .section-approve-btn[data-approved="true"]:hover {
   background: var(--c-accent-hover);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.22);
 }
 
 /* ── Entry block (groups sub-fields for one experience / education entry) ── */
@@ -779,4 +786,58 @@ body {
 /* Brief "Downloaded ✓" flash */
 .download-button[data-success="true"] {
   background: var(--c-accent-light);
+}
+
+/* ── Inline download button (inside resume column header) ─────────────────── */
+.column-download-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.38rem 1rem;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition:
+    background var(--transition),
+    box-shadow var(--transition),
+    color var(--transition);
+}
+
+/* Disabled — greyed out; not all sections approved yet */
+.column-download-btn:disabled {
+  background: var(--c-border);
+  color: var(--c-text-3);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Active — solid green, feels like a reward for completing approvals */
+.column-download-btn:not(:disabled) {
+  background: var(--c-accent);
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+.column-download-btn:not(:disabled):hover {
+  background: var(--c-accent-hover);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+}
+.column-download-btn:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+/* ── Nudge hint below the download button ─────────────────────────────────── */
+/* Disappears once at least one section is approved — see ResumeColumn logic  */
+.resume-nudge-text {
+  font-size: 0.69rem;
+  color: var(--c-text-3);
+  font-style: italic;
+  text-align: center;
+  line-height: 1.4;
+  margin-top: -0.2rem;   /* pull slightly closer to the download button above it */
 }

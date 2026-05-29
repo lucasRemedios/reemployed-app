@@ -73,10 +73,14 @@ function convertApiToUIData(api: {
     summary: makeField('sum-0', api.summary.text, api.summary.postingReference, api.summary.backgroundReference),
     experience: api.experience.map((e, i): UIExperienceEntry => ({
       id:           `exp-${i}`,
-      // title/org/dates: verbatim from background → self-reference; no posting ref
-      title:        makeField(`exp-${i}-title`, e.title,        [], self(e.title)),
+      // title/org/dates: verbatim from background → self-reference; no posting ref.
+      // For title and dates we anchor to the organization name (which is unique per
+      // entry) rather than the field's own value — "Applied Scientist" and date
+      // ranges like "2021–2023" may repeat across entries, causing indexOf to always
+      // return the first occurrence.  The org name uniquely identifies the block.
+      title:        makeField(`exp-${i}-title`, e.title,        [], self(e.organization) || self(e.title)),
       organization: makeField(`exp-${i}-org`,   e.organization, [], self(e.organization)),
-      dates:        makeField(`exp-${i}-dates`,  e.dates,       [], self(e.dates)),
+      dates:        makeField(`exp-${i}-dates`,  e.dates,       [], self(e.organization) || self(e.dates)),
       // description: LLM-supplied refs carry the real evidence
       description:  makeField(`exp-${i}-desc`,   e.description,  e.postingReference, e.backgroundReference),
     })),
@@ -386,6 +390,7 @@ export default function App() {
               onApproveSection={handleApproveSection}
               onSave={handleSave}
               onFieldHover={handleFieldHover}
+              onDownload={handleDownloadClick}
             />
           ) : (
             <div className="resume-column resume-column--empty">

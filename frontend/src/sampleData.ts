@@ -104,9 +104,9 @@ export const SAMPLE_RESUME_DATA: UIResumeData = {
   experience: [
     ((): UIExperienceEntry => ({
       id:           'exp-0',
-      title:        field('exp-0-title', 'Applied Scientist', [], ['Applied Scientist']),
+      title:        field('exp-0-title', 'Applied Scientist', [], ['Acme Corp']),
       organization: field('exp-0-org',   'Acme Corp',         [], ['Acme Corp']),
-      dates:        field('exp-0-dates',  '2021–2023',        [], ['2021–2023']),
+      dates:        field('exp-0-dates',  '2021–2023',        [], ['Acme Corp']),
       description:  field(
         'exp-0-desc',
         'Designed and shipped a BERT-based content moderation classifier handling 2M daily requests at under 40ms p99 latency on AWS Lambda.\nReduced annotation cost by 60% through an active-learning pipeline that prioritised uncertain examples — cutting labelling hours from 400 to 160 for equivalent model quality.\nCollaborated with PM and engineering leads on a bi-weekly release cycle — defining evaluation metrics jointly and shipping three consecutive model improvements.',
@@ -124,9 +124,9 @@ export const SAMPLE_RESUME_DATA: UIResumeData = {
     }))(),
     ((): UIExperienceEntry => ({
       id:           'exp-1',
-      title:        field('exp-1-title', 'Applied Scientist', [], ['Applied Scientist']),
+      title:        field('exp-1-title', 'Applied Scientist', [], ['Loreston Corp']),
       organization: field('exp-1-org',   'Loreston Corp',     [], ['Loreston Corp']),
-      dates:        field('exp-1-dates',  '2021–2023',        [], ['2021–2023']),
+      dates:        field('exp-1-dates',  '2021–2023',        [], ['Loreston Corp']),
       description:  field(
         'exp-1-desc',
         'Implemented and debugged NLP and LLM systems.',

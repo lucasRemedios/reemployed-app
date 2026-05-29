@@ -19,6 +19,7 @@ type Props = {
   onApproveSection:  (ids: string[], approved: boolean) => void
   onSave:            (id: string, newText: string) => void
   onFieldHover:      (field: UIField | null) => void
+  onDownload:        () => void
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -90,7 +91,7 @@ function SectionBlock({ title, sectionFields, onApproveSection, children }: Sect
             data-approved={approved}
             onClick={() => onApproveSection(sectionFields.map(f => f.id), !approved)}
           >
-            {approved ? '✓ Approved' : 'Approve'}
+            {approved ? '✓ Approved' : '☐ Approve'}
           </button>
         )}
       </div>
@@ -153,7 +154,7 @@ function EducationBlock({ entry, shared }: { entry: UIEducationEntry; shared: Sh
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function ResumeColumn({ data, estimatedPages, onApproveSection, onSave, onFieldHover }: Props) {
+export function ResumeColumn({ data, estimatedPages, onApproveSection, onSave, onFieldHover, onDownload }: Props) {
   const { total, approved: approvedSections } = computeSectionCounts(data)
   const progressPct  = total > 0 ? Math.round((approvedSections / total) * 100) : 0
   const allDone      = total > 0 && approvedSections === total
@@ -195,11 +196,24 @@ export function ResumeColumn({ data, estimatedPages, onApproveSection, onSave, o
             <span className="progress-label" data-done={allDone}>
               {approvedSections} / {total} approved
             </span>
-            {estimateText && (
-              <span className="page-estimate-inline">{estimateText}</span>
-            )}
+            {/* Always rendered so its line height is permanently reserved — no layout shift on first approval */}
+            <span className="page-estimate-inline">{estimateText || ' '}</span>
           </div>
         </div>
+
+        {/* Inline download button — disabled until all sections approved */}
+        {total > 0 && (
+          <button
+            className="column-download-btn"
+            disabled={!allDone}
+            onClick={allDone ? onDownload : undefined}
+          >
+            {allDone
+              ? '↓ Download Resume'
+              : `Click approve on each section to download (${approvedSections}/${total})`}
+          </button>
+        )}
+
         <div className="progress-track">
           <div className="progress-fill" style={{ width: `${progressPct}%` }} />
         </div>
