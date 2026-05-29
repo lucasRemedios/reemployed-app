@@ -91,7 +91,7 @@ function SectionBlock({ title, sectionFields, onApproveSection, children }: Sect
             data-approved={approved}
             onClick={() => onApproveSection(sectionFields.map(f => f.id), !approved)}
           >
-            {approved ? '✓ Approved' : '☐ Approve'}
+            {approved ? '🔒 Approved' : '🔓 Approve'}
           </button>
         )}
       </div>
@@ -210,7 +210,7 @@ export function ResumeColumn({ data, estimatedPages, onApproveSection, onSave, o
           >
             {allDone
               ? '↓ Download Resume'
-              : `Click approve on each section to download (${approvedSections}/${total})`}
+              : `Review and approve each section to download (${approvedSections}/${total})`}
           </button>
         )}
 

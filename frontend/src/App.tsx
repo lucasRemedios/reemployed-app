@@ -200,8 +200,6 @@ function buildExportBody(data: UIResumeData, estimatedPages: number) {
 const MAX_JOB_WORDS        = 5_000
 const MAX_BACKGROUND_WORDS = 15_000
 
-type DownloadStatus = 'idle' | 'loading' | 'success'
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -209,7 +207,6 @@ export default function App() {
   const [background,  setBackground]  = useState(SAMPLE_BACKGROUND)
   const [resumeData,  setResumeData]  = useState<UIResumeData | null>(SAMPLE_RESUME_DATA)
   const [status,      setStatus]      = useState<AppStatus>({ kind: 'idle' })
-  const [downloadStatus, setDownloadStatus] = useState<DownloadStatus>('idle')
 
   const jobPostingFieldRef = useRef<TextareaFieldHandle>(null)
   const backgroundFieldRef = useRef<TextareaFieldHandle>(null)
@@ -298,7 +295,6 @@ export default function App() {
 
   async function handleDownloadClick() {
     if (!resumeData || !allApproved) return
-    setDownloadStatus('loading')
 
     try {
       const response = await fetch('/api/export', {
@@ -317,26 +313,10 @@ export default function App() {
       anchor.click()
       URL.revokeObjectURL(objectUrl)
 
-      setDownloadStatus('success')
-      setTimeout(() => setDownloadStatus('idle'), 2000)
-
     } catch (err) {
       console.error('[export]', err)
-      setDownloadStatus('idle')
     }
   }
-
-  const downloadDisabled = !allApproved || downloadStatus === 'loading'
-  const downloadLabel    =
-    downloadStatus === 'loading' ? 'Downloading…' :
-    downloadStatus === 'success' ? 'Downloaded ✓' :
-    'Download Resume'
-
-  const downloadTitle = !allApproved
-    ? totalCount === 0
-      ? 'Tailor your resume first'
-      : `Approve all ${totalCount} fields to download`
-    : undefined
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -420,16 +400,6 @@ export default function App() {
           {isLoading && <span className="button-spinner" aria-hidden />}
           {isLoading ? 'Tailoring your resume…' : 'Tailor Resume'}
           {!isLoading && <span className="button-arrow" aria-hidden>→</span>}
-        </button>
-
-        <button
-          className="download-button"
-          onClick={handleDownloadClick}
-          disabled={downloadDisabled}
-          data-success={downloadStatus === 'success'}
-          title={downloadTitle}
-        >
-          {downloadLabel}
         </button>
 
       </footer>
