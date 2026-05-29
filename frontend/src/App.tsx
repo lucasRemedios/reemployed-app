@@ -203,10 +203,11 @@ const MAX_BACKGROUND_WORDS = 15_000
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [jobPosting,  setJobPosting]  = useState(SAMPLE_JOB_POSTING)
-  const [background,  setBackground]  = useState(SAMPLE_BACKGROUND)
-  const [resumeData,  setResumeData]  = useState<UIResumeData | null>(SAMPLE_RESUME_DATA)
-  const [status,      setStatus]      = useState<AppStatus>({ kind: 'idle' })
+  const [jobPosting,   setJobPosting]  = useState(SAMPLE_JOB_POSTING)
+  const [background,   setBackground]  = useState(SAMPLE_BACKGROUND)
+  const [resumeData,   setResumeData]  = useState<UIResumeData | null>(SAMPLE_RESUME_DATA)
+  const [status,       setStatus]      = useState<AppStatus>({ kind: 'idle' })
+  const [hasTailored,  setHasTailored] = useState(false)
 
   const jobPostingFieldRef = useRef<TextareaFieldHandle>(null)
   const backgroundFieldRef = useRef<TextareaFieldHandle>(null)
@@ -246,6 +247,7 @@ export default function App() {
 
     jobPostingFieldRef.current?.setHighlight(null)
     backgroundFieldRef.current?.setHighlight(null)
+    setHasTailored(true)
     setStatus({ kind: 'loading', stage: 1 })
 
     try {
@@ -325,12 +327,43 @@ export default function App() {
 
       <header className="app-header">
         <div className="app-header-inner">
-          <div>
-            <h1 className="logo">ReEmployed</h1>
-            <p className="tagline">
-              Get a resume grounded in what you've actually done.
+
+          {/* Left: branding + tagline + steps */}
+          <div className="app-header-left">
+            <div className="app-header-brand">
+              <h1 className="logo">ReEmployed</h1>
+              <span className="app-attribution">
+                by Lucas Remedios ·{' '}
+                <a href="https://lucasremedios.github.io" target="_blank" rel="noopener noreferrer">
+                  lucasremedios.github.io
+                </a>
+              </span>
+            </div>
+            <p className="tagline">Get a resume grounded in what you've actually done.</p>
+            <p className="app-steps">
+              Step 1: Paste a job posting. · Step 2: Paste your background. · Step 3: Click Tailor Resume. · Step 4: Click Download.
             </p>
           </div>
+
+          {/* Center: error (reserved height) + Tailor button */}
+          <div className="app-header-center">
+            <p className="header-error" aria-live="polite">
+              {status.kind === 'error' ? status.message : ''}
+            </p>
+            <button
+              className="tailor-button"
+              onClick={handleTailorClick}
+              disabled={isLoading}
+            >
+              {isLoading && <span className="button-spinner" aria-hidden />}
+              {isLoading ? 'Tailoring your resume…' : hasTailored ? 'Re-Tailor Resume' : 'Tailor Resume'}
+              {!isLoading && <span className="button-arrow" aria-hidden>→</span>}
+            </button>
+          </div>
+
+          {/* Right: empty spacer so center stays truly centered */}
+          <div className="app-header-right" aria-hidden="true" />
+
         </div>
       </header>
 
@@ -387,22 +420,6 @@ export default function App() {
 
       </main>
 
-      <footer className="action-bar">
-        {status.kind === 'error' && (
-          <p className="action-error">{status.message}</p>
-        )}
-
-        <button
-          className="tailor-button"
-          onClick={handleTailorClick}
-          disabled={isLoading}
-        >
-          {isLoading && <span className="button-spinner" aria-hidden />}
-          {isLoading ? 'Tailoring your resume…' : 'Tailor Resume'}
-          {!isLoading && <span className="button-arrow" aria-hidden>→</span>}
-        </button>
-
-      </footer>
 
     </div>
   )
