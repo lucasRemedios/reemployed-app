@@ -9,6 +9,10 @@ backend/dist/
 .env
 .env.local
 
+# Private prompt files — LLM instructions should not be public
+# Copy prompts.local.example.ts → prompts.local.ts to get started
+*.local.ts
+
 # Editor/OS noise
 .DS_Store
 *.swp
