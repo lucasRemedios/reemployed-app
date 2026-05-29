@@ -1,15 +1,14 @@
 // index.ts — Express server entry point.
 
+// config MUST be first: it calls dotenv.config() before any other module
+// reads process.env (prompts.ts reads env vars at load time).
+import './config'
+
 import express    from 'express'
 import cors       from 'cors'
-import dotenv     from 'dotenv'
 import { tailorHandler }  from './routes/tailor'
 import { exportHandler }  from './routes/export'
 import { optionalAuth }   from './middleware/auth'
-
-// Path is relative to process.cwd(), which is the `backend/` folder when
-// you run `npm run dev` from there. So `../.env` = project root `.env`.
-dotenv.config({ path: '../.env' })
 
 const app  = express()
 const PORT = process.env.PORT ?? 3001

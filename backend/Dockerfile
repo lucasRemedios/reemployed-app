@@ -12,10 +12,6 @@ RUN npm ci
 # ── Build ─────────────────────────────────────────────────────────────────────
 # Copy source files and compile TypeScript → dist/
 COPY . .
-# Inject gitignored prompts file from Render build env var.
-# Set PROMPTS_LOCAL_TS in the Render dashboard with the full file content.
-ARG PROMPTS_LOCAL_TS
-RUN echo "$PROMPTS_LOCAL_TS" > src/prompts.local.ts
 RUN npm run build
 
 # ── Runtime ───────────────────────────────────────────────────────────────────
