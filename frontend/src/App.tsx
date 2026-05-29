@@ -37,6 +37,16 @@ function makeField(
 }
 
 // Convert the raw API response (from /api/tailor) into the frontend UIResumeData shape.
+//
+// Hover-highlight rule:
+//   • Fields whose text is copied verbatim from the background (personal details,
+//     experience title/org/dates, education sub-fields) use the text itself as its
+//     own backgroundReference — so hovering always highlights exactly where that
+//     value came from, even though the LLM doesn't supply a separate reference.
+//   • Fields with LLM-supplied references (summary, description, research, skills,
+//     additional) keep those references as-is.
+//   • postingReference is only set when the LLM provides it — verbatim fields
+//     generally don't correspond to a specific posting excerpt.
 function convertApiToUIData(api: {
   personalDetails: { name: string; email: string; phone: string; location: string; website: string; linkedin: string; github: string; googleScholar: string }
   summary:         { text: string; postingReference: string[]; backgroundReference: string[] }
@@ -47,32 +57,37 @@ function convertApiToUIData(api: {
   additional:      Array<{ section: string; text: string; postingReference: string[]; backgroundReference: string[] }>
 }): UIResumeData {
   const pd = api.personalDetails
+  // For verbatim fields: if the value is non-empty, it is its own background reference.
+  const self = (text: string): string[] => text.trim() ? [text.trim()] : []
   return {
     personalDetails: {
-      name:          makeField('pd-name',     pd.name),
-      email:         makeField('pd-email',    pd.email),
-      phone:         makeField('pd-phone',    pd.phone),
-      location:      makeField('pd-location', pd.location),
-      website:       makeField('pd-website',  pd.website),
-      linkedin:      makeField('pd-linkedin', pd.linkedin),
-      github:        makeField('pd-github',   pd.github),
-      googleScholar: makeField('pd-scholar',  pd.googleScholar),
+      name:          makeField('pd-name',     pd.name,          [], self(pd.name)),
+      email:         makeField('pd-email',    pd.email,         [], self(pd.email)),
+      phone:         makeField('pd-phone',    pd.phone,         [], self(pd.phone)),
+      location:      makeField('pd-location', pd.location,      [], self(pd.location)),
+      website:       makeField('pd-website',  pd.website,       [], self(pd.website)),
+      linkedin:      makeField('pd-linkedin', pd.linkedin,      [], self(pd.linkedin)),
+      github:        makeField('pd-github',   pd.github,        [], self(pd.github)),
+      googleScholar: makeField('pd-scholar',  pd.googleScholar, [], self(pd.googleScholar)),
     },
     summary: makeField('sum-0', api.summary.text, api.summary.postingReference, api.summary.backgroundReference),
     experience: api.experience.map((e, i): UIExperienceEntry => ({
       id:           `exp-${i}`,
-      title:        makeField(`exp-${i}-title`, e.title,        e.postingReference, e.backgroundReference),
-      organization: makeField(`exp-${i}-org`,   e.organization),
-      dates:        makeField(`exp-${i}-dates`,  e.dates),
+      // title/org/dates: verbatim from background → self-reference; no posting ref
+      title:        makeField(`exp-${i}-title`, e.title,        [], self(e.title)),
+      organization: makeField(`exp-${i}-org`,   e.organization, [], self(e.organization)),
+      dates:        makeField(`exp-${i}-dates`,  e.dates,       [], self(e.dates)),
+      // description: LLM-supplied refs carry the real evidence
       description:  makeField(`exp-${i}-desc`,   e.description,  e.postingReference, e.backgroundReference),
     })),
     education: api.education.map((e, i): UIEducationEntry => ({
       id:          `edu-${i}`,
-      degree:      makeField(`edu-${i}-degree`, e.degree),
-      institution: makeField(`edu-${i}-inst`,   e.institution),
-      dates:       makeField(`edu-${i}-dates`,  e.dates),
-      advisor:     makeField(`edu-${i}-advisor`,e.advisor),
-      details:     makeField(`edu-${i}-details`,e.details),
+      // all education sub-fields are verbatim from background → self-reference
+      degree:      makeField(`edu-${i}-degree`, e.degree,      [], self(e.degree)),
+      institution: makeField(`edu-${i}-inst`,   e.institution, [], self(e.institution)),
+      dates:       makeField(`edu-${i}-dates`,  e.dates,       [], self(e.dates)),
+      advisor:     makeField(`edu-${i}-advisor`,e.advisor,     [], self(e.advisor)),
+      details:     makeField(`edu-${i}-details`,e.details,     [], self(e.details)),
     })),
     research: api.research.map((r, i) =>
       makeField(`res-${i}`, r.text, r.postingReference, r.backgroundReference)

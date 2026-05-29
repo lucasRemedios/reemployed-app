@@ -104,9 +104,9 @@ export const SAMPLE_RESUME_DATA: UIResumeData = {
   experience: [
     ((): UIExperienceEntry => ({
       id:           'exp-0',
-      title:        field('exp-0-title', 'Applied Scientist'),
-      organization: field('exp-0-org',   'Acme Corp'),
-      dates:        field('exp-0-dates',  '2021–2023'),
+      title:        field('exp-0-title', 'Applied Scientist', [], ['Applied Scientist']),
+      organization: field('exp-0-org',   'Acme Corp',         [], ['Acme Corp']),
+      dates:        field('exp-0-dates',  '2021–2023',        [], ['2021–2023']),
       description:  field(
         'exp-0-desc',
         'Designed and shipped a BERT-based content moderation classifier handling 2M daily requests at under 40ms p99 latency on AWS Lambda.\nReduced annotation cost by 60% through an active-learning pipeline that prioritised uncertain examples — cutting labelling hours from 400 to 160 for equivalent model quality.\nCollaborated with PM and engineering leads on a bi-weekly release cycle — defining evaluation metrics jointly and shipping three consecutive model improvements.',
@@ -124,9 +124,9 @@ export const SAMPLE_RESUME_DATA: UIResumeData = {
     }))(),
     ((): UIExperienceEntry => ({
       id:           'exp-1',
-      title:        field('exp-1-title', 'Applied Scientist'),
-      organization: field('exp-1-org',   'Loreston Corp'),
-      dates:        field('exp-1-dates',  '2021–2023'),
+      title:        field('exp-1-title', 'Applied Scientist', [], ['Applied Scientist']),
+      organization: field('exp-1-org',   'Loreston Corp',     [], ['Loreston Corp']),
+      dates:        field('exp-1-dates',  '2021–2023',        [], ['2021–2023']),
       description:  field(
         'exp-1-desc',
         'Implemented and debugged NLP and LLM systems.',
@@ -139,16 +139,16 @@ export const SAMPLE_RESUME_DATA: UIResumeData = {
   education: [
     ((): UIEducationEntry => ({
       id:          'edu-0',
-      degree:      field('edu-0-degree',  'PhD, Natural Language Processing'),
-      institution: field('edu-0-inst',    'Stanford University'),
-      dates:       field('edu-0-dates',   '2023'),
+      degree:      field('edu-0-degree',  'PhD, Natural Language Processing', [], ['PhD, Natural Language Processing']),
+      institution: field('edu-0-inst',    'Stanford University',              [], ['Stanford University']),
+      dates:       field('edu-0-dates',   '2023',                             [], ['2023']),
       advisor:     field('edu-0-advisor', ''),
-      details:     field('edu-0-details', 'Dissertation: Low-Resource Sequence Modeling under Constrained Supervision'),
+      details:     field('edu-0-details', 'Dissertation: Low-Resource Sequence Modeling under Constrained Supervision', [], ['Dissertation: Low-Resource Sequence Modeling under Constrained Supervision']),
     }))(),
     ((): UIEducationEntry => ({
       id:          'edu-1',
-      degree:      field('edu-1-degree',  'Masters in CS'),
-      institution: field('edu-1-inst',    'Ohio State'),
+      degree:      field('edu-1-degree',  'Masters in CS', [], ['Masters in CS']),
+      institution: field('edu-1-inst',    'Ohio State',    [], ['ohio state']),
       dates:       field('edu-1-dates',   ''),
       advisor:     field('edu-1-advisor', ''),
       details:     field('edu-1-details', ''),
