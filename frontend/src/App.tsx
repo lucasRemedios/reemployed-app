@@ -341,7 +341,7 @@ export default function App() {
             </div>
             <p className="tagline">Get a resume grounded in what you've actually done.</p>
             <p className="app-steps">
-              Step 1: Paste a job posting. · Step 2: Paste your background. · Step 3: Click Tailor Resume. · Step 4: Click Download.
+              Paste a job → Paste your background → Tailor → Approve → Download
             </p>
           </div>
 
