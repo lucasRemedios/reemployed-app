@@ -82,10 +82,9 @@ export function FieldCard({
       onMouseLeave={() => !isEditing && onHoverEnd()}
       onClick={() => !isEditing && !field.approved && startEditing()}
     >
-      {/* Label row — label + pencil affordance + optional edited indicator */}
+      {/* Label row — label + optional edited indicator */}
       <div className="field-card-label-row">
         <span className="field-label">{label}</span>
-        <span className="pencil-icon" aria-hidden="true">✏</span>
         {field.edited && !isEditing && (
           <span className="edited-mark" title="You edited this field">✎</span>
         )}

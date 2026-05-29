@@ -412,22 +412,13 @@ body {
   color: var(--c-accent);
 }
 
-/* Lock emoji inside the approve button */
+/* Lock emoji inside the approve button — white in both states to match button text */
 .approve-lock {
   display: inline-block;
+  filter: brightness(0) invert(1);
   font-size: 0.85em;
   vertical-align: middle;
   margin-right: 0.1em;
-}
-
-/* Approved (closed lock): white to match "Approved" text */
-.section-approve-btn[data-approved="true"] .approve-lock {
-  filter: brightness(0) invert(1);
-}
-
-/* Unapproved (open lock): natural emoji gold/yellow — pops against the green button */
-.section-approve-btn:not([data-approved="true"]) .approve-lock {
-  filter: none;
 }
 
 /* ── Section header row: title + approve button ───────────────────────────── */
@@ -557,31 +548,6 @@ body {
   box-shadow: 0 0 0 2px rgba(42, 96, 73, 0.08);
 }
 
-/* ── Pencil affordance — inline with label text ───────────────────────────── */
-.pencil-icon {
-  display: inline-block;    /* needed for transform to apply */
-  font-size: 0.6rem;        /* matches .field-label so it reads as one unit */
-  opacity: 0;               /* hidden by default; approved + editing cards keep it hidden */
-  /* filter desaturates the emoji to gray and sets its darkness independently of opacity */
-  filter: saturate(0) brightness(0.38);
-  transform: scaleX(-1);    /* flip horizontally: tip points lower-left, eraser upper-right */
-  transition: opacity var(--transition), filter var(--transition);
-  pointer-events: none;
-  user-select: none;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-/* Visible on editable (non-approved, non-editing) cards — full opacity, darkness from filter */
-.line-card:not([data-approved="true"]):not([data-editing="true"]) .pencil-icon {
-  opacity: 1;
-}
-
-/* Slightly darker on hover */
-.line-card:hover:not([data-editing="true"]):not([data-approved="true"]) .pencil-icon {
-  opacity: 1;
-  filter: saturate(0) brightness(0.22);
-}
 
 /* ── Line text ────────────────────────────────────────────────────────────── */
 .line-text {
