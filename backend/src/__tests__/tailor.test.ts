@@ -73,6 +73,7 @@ const VALID_STAGE2 = JSON.stringify({
   summary: {
     text:                'Experienced TypeScript engineer with React expertise.',
     postingReference:    ['TypeScript engineer with React experience'],
+    //backgroundReference: ['This reference is not in the source text'],
     backgroundReference: ['Software Engineer at Acme Corp'],
   },
   experience: [
