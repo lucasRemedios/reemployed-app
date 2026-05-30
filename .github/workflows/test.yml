@@ -27,8 +27,3 @@ jobs:
       - name: Run tests
         working-directory: backend
         run: npm test
-
-      - name: Deploy to Render
-        # Only deploy on push to main — never on pull requests
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: curl --silent --show-error --fail "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
