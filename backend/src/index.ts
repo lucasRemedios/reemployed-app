@@ -14,7 +14,11 @@ const app  = express()
 const PORT = process.env.PORT ?? 3001
 
 // ── Middleware ───────────────────────────────────────────────────────────────
-app.use(cors({ origin: 'http://localhost:5173' }))
+// Allow the local dev frontend and, in production, the deployed frontend URL.
+// Set FRONTEND_URL in Render to your Vercel URL (e.g. https://myapp.vercel.app).
+const allowedOrigins = ['http://localhost:5173']
+if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL)
+app.use(cors({ origin: allowedOrigins }))
 app.use(express.json())
 
 // ── Routes ───────────────────────────────────────────────────────────────────
