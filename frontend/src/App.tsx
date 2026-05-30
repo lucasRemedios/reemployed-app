@@ -10,7 +10,7 @@
 // Approve-all gate:
 //   Only non-empty fields count. Empty fields (text === '') are always skipped.
 
-import { useState, useRef }      from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { TextareaField }         from './components/TextareaField'
 import type { TextareaFieldHandle } from './components/TextareaField'
 import { ResumeColumn }          from './components/ResumeColumn'
@@ -24,6 +24,19 @@ import type {
   UIField, UIResumeData, UIExperienceEntry, UIEducationEntry,
   UIAdditionalEntry, AppStatus,
 } from './types'
+
+// ── Mobile gate ───────────────────────────────────────────────────────────────
+
+function useMobileGate(breakpoint = 768): boolean {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint)
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`)
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [breakpoint])
+  return isMobile
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -318,6 +331,18 @@ export default function App() {
     } catch (err) {
       console.error('[export]', err)
     }
+  }
+
+  // ── Mobile gate ───────────────────────────────────────────────────────────
+  const isMobile = useMobileGate()
+  if (isMobile) {
+    return (
+      <div className="mobile-gate">
+        <p className="mobile-gate-text">
+          ReEmployed is designed for desktop. Open this on a larger screen for the full experience.
+        </p>
+      </div>
+    )
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────

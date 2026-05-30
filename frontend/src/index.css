@@ -44,6 +44,25 @@
   --transition: 140ms ease;
 }
 
+/* ── Mobile gate ──────────────────────────────────────────────────────────── */
+.mobile-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100dvh;
+  padding: 2rem;
+  background: var(--c-bg);
+}
+
+.mobile-gate-text {
+  max-width: 28ch;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--c-text-2);
+}
+
 /* ── Base ─────────────────────────────────────────────────────────────────── */
 html, body, #root {
   height: 100%;
