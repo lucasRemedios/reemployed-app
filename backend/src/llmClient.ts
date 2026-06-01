@@ -9,11 +9,12 @@
 //
 // Interface contract:
 //   callLLM(systemPrompt, userMessage) → Promise<string>
-//   The returned string is always the raw text content from the model.
+//   callLLMDetailed(systemPrompt, userMessage) → Promise<LLMCallResult>
+//   The returned string/content is always the raw text content from the model.
 
 import Groq from 'groq-sdk'
 
-// Lazy singleton — the client is created the first time callLLM() is called,
+// Lazy singleton — the client is created the first time callLLMDetailed() is called,
 // not when this module is imported. This matters because ES module imports are
 // hoisted and run before dotenv.config() in index.ts, so process.env would be
 // empty if we instantiated the client at the top level.
@@ -29,7 +30,22 @@ function getClient(): Groq {
   return _client
 }
 
-export async function callLLM(systemPrompt: string, userMessage: string): Promise<string> {
+export type LLMCallResult = {
+  content: string
+  model:   string
+  usage?:  {
+    promptTokens:     number
+    completionTokens: number
+    totalTokens:      number
+  }
+}
+
+// Full implementation — returns content, model name, and token usage.
+// Used by the debug panel and as the backing implementation for callLLM.
+export async function callLLMDetailed(
+  systemPrompt: string,
+  userMessage:  string,
+): Promise<LLMCallResult> {
   const client = getClient()
   const MODEL  = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile'
   console.log(`[llmClient] Calling ${MODEL} | system: ${systemPrompt.length} chars | user: ${userMessage.length} chars`)
@@ -51,5 +67,18 @@ export async function callLLM(systemPrompt: string, userMessage: string): Promis
   if (!content) throw new Error('Groq returned an empty response')
 
   console.log(`[llmClient] Response received: ${content.length} chars`)
-  return content
+
+  const raw   = completion.usage
+  const usage = raw ? {
+    promptTokens:     raw.prompt_tokens,
+    completionTokens: raw.completion_tokens,
+    totalTokens:      raw.total_tokens,
+  } : undefined
+
+  return { content, model: MODEL, usage }
+}
+
+// Backward-compatible wrapper — returns just the string content.
+export async function callLLM(systemPrompt: string, userMessage: string): Promise<string> {
+  return (await callLLMDetailed(systemPrompt, userMessage)).content
 }

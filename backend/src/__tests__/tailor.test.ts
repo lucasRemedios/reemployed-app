@@ -24,9 +24,10 @@ jest.mock('../supabaseClient', () => ({
 
 // ── Imports ───────────────────────────────────────────────────────────────────
 
-import request     from 'supertest'
-import express     from 'express'
-import { callLLM } from '../llmClient'
+import request from 'supertest'
+import express from 'express'
+import { callLLMDetailed } from '../llmClient'
+import type { LLMCallResult } from '../llmClient'
 import { tailorHandler } from '../routes/tailor'
 
 // ── Test app ─────────────────────────────────────────────────────────────────
@@ -39,7 +40,12 @@ app.post('/api/tailor', tailorHandler)
 
 // ── Typed mock handle ─────────────────────────────────────────────────────────
 
-const mockedCallLLM = callLLM as jest.MockedFunction<typeof callLLM>
+const mockedCallLLM = callLLMDetailed as jest.MockedFunction<typeof callLLMDetailed>
+
+// Wraps a raw string in the LLMCallResult shape the handler now expects
+function r(content: string): LLMCallResult {
+  return { content, model: 'test-model' }
+}
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 // The reference strings embedded in VALID_STAGE2 are intentional verbatim
@@ -73,7 +79,6 @@ const VALID_STAGE2 = JSON.stringify({
   summary: {
     text:                'Experienced TypeScript engineer with React expertise.',
     postingReference:    ['TypeScript engineer with React experience'],
-    //backgroundReference: ['This reference is not in the source text'],
     backgroundReference: ['Software Engineer at Acme Corp'],
   },
   experience: [
@@ -82,6 +87,7 @@ const VALID_STAGE2 = JSON.stringify({
       organization:        'Acme Corp',
       dates:               '2021 to 2023',
       description:         'Built TypeScript and React applications.',
+      competency:          ['full-stack development', 'TypeScript proficiency'],
       postingReference:    ['TypeScript engineer with React experience'],
       backgroundReference: ['Built TypeScript and React applications'],
     },
@@ -109,8 +115,8 @@ const VALID_STAGE2 = JSON.stringify({
 // Helper: set up both stages to succeed with the standard fixtures
 function twoStageSuccess(): void {
   mockedCallLLM
-    .mockResolvedValueOnce(VALID_STAGE1)
-    .mockResolvedValueOnce(VALID_STAGE2)
+    .mockResolvedValueOnce(r(VALID_STAGE1))
+    .mockResolvedValueOnce(r(VALID_STAGE2))
 }
 
 beforeEach(() => {
@@ -202,8 +208,8 @@ describe('Area 1 — Pipeline output shape', () => {
       additional:      [],
     })
     mockedCallLLM
-      .mockResolvedValueOnce(VALID_STAGE1)
-      .mockResolvedValueOnce(sparseStage2)
+      .mockResolvedValueOnce(r(VALID_STAGE1))
+      .mockResolvedValueOnce(r(sparseStage2))
 
     const res = await request(app)
       .post('/api/tailor')
@@ -237,7 +243,7 @@ describe('Area 2 — Grounding contract', () => {
       ...(resume.experience as Record<string, string[]>[]).flatMap(e => e.postingReference),
       ...(resume.skills     as Record<string, string[]>[]).flatMap(s => s.postingReference),
     ]
-    expect(allRefs.length).toBeGreaterThan(0) // fixture must have at least one reference
+    expect(allRefs.length).toBeGreaterThan(0)
     for (const ref of allRefs) {
       expect(JOB_POSTING).toContain(ref)
     }
@@ -266,14 +272,13 @@ describe('Area 2 — Grounding contract', () => {
       ...JSON.parse(VALID_STAGE2),
       summary: {
         text:                'A summary.',
-        // number, null, object, and one valid string — only the string should survive
         postingReference:    [42, null, { nested: true }, 'TypeScript engineer with React experience'],
         backgroundReference: [undefined, 'Software Engineer at Acme Corp'],
       },
     })
     mockedCallLLM
-      .mockResolvedValueOnce(VALID_STAGE1)
-      .mockResolvedValueOnce(stage2WithBadRefs)
+      .mockResolvedValueOnce(r(VALID_STAGE1))
+      .mockResolvedValueOnce(r(stage2WithBadRefs))
 
     const res = await request(app)
       .post('/api/tailor')
@@ -298,8 +303,8 @@ describe('Area 2 — Grounding contract', () => {
       },
     })
     mockedCallLLM
-      .mockResolvedValueOnce(VALID_STAGE1)
-      .mockResolvedValueOnce(stage2WithEmptyRefs)
+      .mockResolvedValueOnce(r(VALID_STAGE1))
+      .mockResolvedValueOnce(r(stage2WithEmptyRefs))
 
     const res = await request(app)
       .post('/api/tailor')
@@ -403,7 +408,7 @@ describe('Area 4 — LLM failure handling', () => {
   })
 
   test('4.2 LLM returns unparseable prose → 500 with JSON parse error message', async () => {
-    mockedCallLLM.mockResolvedValue("Sorry, I can't help with that.")
+    mockedCallLLM.mockResolvedValue(r("Sorry, I can't help with that."))
     const res = await request(app)
       .post('/api/tailor')
       .send({ jobPosting: JOB_POSTING, candidateBackground: BACKGROUND })
@@ -414,8 +419,8 @@ describe('Area 4 — LLM failure handling', () => {
 
   test('4.3 LLM wraps JSON in markdown code fences → fences are stripped, returns 200', async () => {
     mockedCallLLM
-      .mockResolvedValueOnce('```json\n' + VALID_STAGE1 + '\n```')
-      .mockResolvedValueOnce('```json\n' + VALID_STAGE2 + '\n```')
+      .mockResolvedValueOnce(r('```json\n' + VALID_STAGE1 + '\n```'))
+      .mockResolvedValueOnce(r('```json\n' + VALID_STAGE2 + '\n```'))
 
     const res = await request(app)
       .post('/api/tailor')
@@ -426,7 +431,7 @@ describe('Area 4 — LLM failure handling', () => {
   })
 
   test('4.4 Stage 1 returns wrong JSON shape → 500, Stage 2 never called', async () => {
-    mockedCallLLM.mockResolvedValueOnce(JSON.stringify({ thisIsNot: 'a positioning strategy' }))
+    mockedCallLLM.mockResolvedValueOnce(r(JSON.stringify({ thisIsNot: 'a positioning strategy' })))
 
     const res = await request(app)
       .post('/api/tailor')

@@ -14,6 +14,8 @@ import { useState, useRef, useEffect } from 'react'
 import { TextareaField }         from './components/TextareaField'
 import type { TextareaFieldHandle } from './components/TextareaField'
 import { ResumeColumn }          from './components/ResumeColumn'
+import { FloatingPanel }         from './components/FloatingPanel'
+import { DebugPanel }            from './components/DebugPanel'
 import { computePageEstimate }   from './utils/pageEstimate'
 import {
   SAMPLE_JOB_POSTING,
@@ -22,7 +24,7 @@ import {
 } from './sampleData'
 import type {
   UIField, UIResumeData, UIExperienceEntry, UIEducationEntry,
-  UIAdditionalEntry, AppStatus,
+  UIAdditionalEntry, AppStatus, StageDebugInfo,
 } from './types'
 
 // ── Mobile gate ───────────────────────────────────────────────────────────────
@@ -63,7 +65,7 @@ function makeField(
 function convertApiToUIData(api: {
   personalDetails: { name: string; email: string; phone: string; location: string; website: string; linkedin: string; github: string; googleScholar: string }
   summary:         { text: string; postingReference: string[]; backgroundReference: string[] }
-  experience:      Array<{ title: string; organization: string; dates: string; description: string; postingReference: string[]; backgroundReference: string[] }>
+  experience:      Array<{ title: string; organization: string; dates: string; description: string; competency?: string[]; postingReference: string[]; backgroundReference: string[] }>
   education:       Array<{ degree: string; institution: string; dates: string; advisor: string; details: string }>
   research:        Array<{ text: string; postingReference: string[]; backgroundReference: string[] }>
   skills:          Array<{ text: string; postingReference: string[]; backgroundReference: string[] }>
@@ -96,6 +98,8 @@ function convertApiToUIData(api: {
       dates:        makeField(`exp-${i}-dates`,  e.dates,       [], self(e.organization) || self(e.dates)),
       // description: LLM-supplied refs carry the real evidence
       description:  makeField(`exp-${i}-desc`,   e.description,  e.postingReference, e.backgroundReference),
+      // competency: reasoning scaffold — passed through but not rendered
+      competency:   e.competency,
     })),
     education: api.education.map((e, i): UIEducationEntry => ({
       id:          `edu-${i}`,
@@ -221,6 +225,7 @@ export default function App() {
   const [resumeData,   setResumeData]  = useState<UIResumeData | null>(SAMPLE_RESUME_DATA)
   const [status,       setStatus]      = useState<AppStatus>({ kind: 'idle' })
   const [hasTailored,  setHasTailored] = useState(false)
+  const [debugData,    setDebugData]   = useState<StageDebugInfo[] | null>(null)
 
   const jobPostingFieldRef = useRef<TextareaFieldHandle>(null)
   const backgroundFieldRef = useRef<TextareaFieldHandle>(null)
@@ -264,7 +269,7 @@ export default function App() {
     setStatus({ kind: 'loading', stage: 1 })
 
     try {
-      const response = await fetch('/api/tailor', {
+      const response = await fetch('/api/tailor?debug=1', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ jobPosting, candidateBackground: background }),
@@ -278,6 +283,7 @@ export default function App() {
 
       const resume = data.resume as Parameters<typeof convertApiToUIData>[0]
       setResumeData(convertApiToUIData(resume))
+      setDebugData(Array.isArray(data.debug) ? data.debug as StageDebugInfo[] : null)
       setStatus({ kind: 'done' })
 
     } catch (err) {
@@ -445,6 +451,12 @@ export default function App() {
 
       </main>
 
+      {/* Debug panel — launcher only appears when debug data is present */}
+      {debugData && (
+        <FloatingPanel label="🐛" title="LLM Debug Transcript">
+          <DebugPanel stages={debugData} />
+        </FloatingPanel>
+      )}
 
     </div>
   )

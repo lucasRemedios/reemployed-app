@@ -60,6 +60,8 @@ export type UIExperienceEntry = {
   organization: UIField
   dates:        UIField
   description:  UIField  // may contain newlines; rendered with white-space: pre-line
+  // competency is the LLM's reasoning scaffold — parsed and stored but never rendered
+  competency?:  string[]
 }
 
 export type UIEducationEntry = {
@@ -88,6 +90,28 @@ export type UIResumeData = {
   research:        UIField[]       // omit array entirely if not applicable
   skills:          UIField[]       // omit array entirely if not applicable
   additional:      UIAdditionalEntry[]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEBUG — raw LLM transcript (only present when ?debug=1 is appended to fetch)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type TokenUsage = {
+  promptTokens:     number
+  completionTokens: number
+  totalTokens:      number
+}
+
+export type StageDebugInfo = {
+  stage:          1 | 2
+  model:          string
+  systemPrompt:   string
+  userMessage:    string
+  rawResponse:    string
+  parsedResponse: unknown
+  parseError:     string | null
+  latencyMs:      number
+  tokenUsage:     TokenUsage | null
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

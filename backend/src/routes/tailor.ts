@@ -7,9 +7,25 @@
 // See prompts.ts and frontend/src/types.ts for the field-level contract.
 
 import { Request, Response } from 'express'
-import { callLLM }     from '../llmClient'
+import { callLLMDetailed } from '../llmClient'
+import type { LLMCallResult } from '../llmClient'
 import { getSupabase } from '../supabaseClient'
 import { STAGE_1_SYSTEM, STAGE_1_USER, STAGE_2_SYSTEM, STAGE_2_USER } from '../prompts'
+
+// ── Debug info shape ───────────────────────────────────────────────────────────
+// Only attached to the response when DEBUG_LLM=true or ?debug=1 is present.
+
+type StageDebugInfo = {
+  stage:          1 | 2
+  model:          string
+  systemPrompt:   string
+  userMessage:    string
+  rawResponse:    string
+  parsedResponse: unknown
+  parseError:     string | null
+  latencyMs:      number
+  tokenUsage:     LLMCallResult['usage'] | null
+}
 
 const MAX_JOB_WORDS        = 5_000
 const MAX_BACKGROUND_WORDS = 15_000
@@ -92,7 +108,7 @@ function parseSummary(raw: unknown): {
 
 function parseExperience(raw: unknown): Array<{
   title: string; organization: string; dates: string; description: string
-  postingReference: string[]; backgroundReference: string[]
+  competency: string[]; postingReference: string[]; backgroundReference: string[]
 }> {
   if (!Array.isArray(raw)) return []
   return raw.map(item => {
@@ -103,12 +119,14 @@ function parseExperience(raw: unknown): Array<{
       organization:        str(e.organization),
       dates:               str(e.dates),
       description:         str(e.description),
+      // competency is a reasoning scaffold — parsed and passed through but never rendered
+      competency:          strArray(e.competency),
       postingReference:    strArray(e.postingReference),
       backgroundReference: strArray(e.backgroundReference),
     }
   }).filter(Boolean) as Array<{
     title: string; organization: string; dates: string; description: string
-    postingReference: string[]; backgroundReference: string[]
+    competency: string[]; postingReference: string[]; backgroundReference: string[]
   }>
 }
 
@@ -194,21 +212,45 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
 
   console.log(`[tailor] Starting pipeline | job: ${jobWords} words | background: ${bgWords} words`)
 
+  // ── Debug gate ─────────────────────────────────────────────────────────────
+  // Include LLM debug info in the response when DEBUG_LLM=true on the server
+  // OR when the client appends ?debug=1 to the request.  Default: off.
+  const debugMode   = process.env.DEBUG_LLM === 'true' || req.query.debug === '1'
+  const debugStages: StageDebugInfo[] = []
+
   try {
     // ── Stage 1 ────────────────────────────────────────────────────────────────
     console.log('[tailor] Stage 1: analysing job posting…')
-    const stage1Raw    = await callLLM(STAGE_1_SYSTEM, STAGE_1_USER(jobPosting))
-    const stage1Parsed = parseJson(stage1Raw)
+    const s1System = STAGE_1_SYSTEM
+    const s1User   = STAGE_1_USER(jobPosting)
+    const s1Start  = Date.now()
+    const s1Result = await callLLMDetailed(s1System, s1User)
+    const s1Ms     = Date.now() - s1Start
+
+    const stage1Parsed = parseJson(s1Result.content)
 
     if (!isPositioningStrategy(stage1Parsed)) {
       throw new Error('Stage 1 response did not match the expected structure.')
     }
     console.log('[tailor] Stage 1 complete. Archetype:', stage1Parsed.roleArchetype)
 
+    if (debugMode) debugStages.push({
+      stage: 1, model: s1Result.model,
+      systemPrompt: s1System, userMessage: s1User,
+      rawResponse: s1Result.content, parsedResponse: stage1Parsed, parseError: null,
+      latencyMs: s1Ms, tokenUsage: s1Result.usage ?? null,
+    })
+
     // ── Stage 2 ────────────────────────────────────────────────────────────────
     console.log('[tailor] Stage 2: writing tailored resume…')
-    const stage2Raw    = await callLLM(STAGE_2_SYSTEM, STAGE_2_USER(jobPosting, candidateBackground, stage1Parsed))
-    const stage2Parsed = parseJson(stage2Raw) as Record<string, unknown>
+    // s2User is the FULL assembled message including the Stage 1 strategy object.
+    const s2System = STAGE_2_SYSTEM
+    const s2User   = STAGE_2_USER(jobPosting, candidateBackground, stage1Parsed)
+    const s2Start  = Date.now()
+    const s2Result = await callLLMDetailed(s2System, s2User)
+    const s2Ms     = Date.now() - s2Start
+
+    const stage2Parsed = parseJson(s2Result.content) as Record<string, unknown>
 
     const personalDetails = parsePersonalDetails(stage2Parsed.personalDetails)
     const summary         = parseSummary(stage2Parsed.summary)
@@ -226,6 +268,13 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
     )
 
     const resume = { personalDetails, summary, experience, education, research, skills, additional }
+
+    if (debugMode) debugStages.push({
+      stage: 2, model: s2Result.model,
+      systemPrompt: s2System, userMessage: s2User,
+      rawResponse: s2Result.content, parsedResponse: resume, parseError: null,
+      latencyMs: s2Ms, tokenUsage: s2Result.usage ?? null,
+    })
 
     // ── Persist to DB (authenticated requests only) ────────────────────────────
     // req.userId is set by optionalAuth middleware when a valid Bearer token is
@@ -256,6 +305,7 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
       strategy:    stage1Parsed,
       resume,
       generatedAt: new Date().toISOString(),
+      ...(debugMode ? { debug: debugStages } : {}),
     })
 
   } catch (err) {

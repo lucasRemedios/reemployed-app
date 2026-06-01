@@ -911,3 +911,200 @@ body {
   line-height: 1.4;
   margin-top: -0.2rem;   /* pull slightly closer to the download button above it */
 }
+
+/* ── FloatingPanel — launcher + sliding panel ──────────────────────────────── */
+
+/* Launcher button: fixed bottom-right, pill shape */
+.floating-launcher {
+  position: fixed;
+  bottom: 1.5rem;
+  right:  1.5rem;
+  z-index: 200;
+  width:  2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text-2);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.floating-launcher:hover {
+  background: var(--c-accent-light);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+}
+
+/* Panel: slides up from bottom-right */
+.floating-panel {
+  position: fixed;
+  bottom: 5rem;         /* just above the launcher */
+  right:  1.5rem;
+  z-index: 199;
+  width: min(680px, calc(100vw - 3rem));
+  height: min(560px, calc(100vh - 7rem));
+  background: var(--c-surface);
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Panel header */
+.floating-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+  background: var(--c-bg);
+}
+.floating-panel-title {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--c-text);
+  letter-spacing: 0.02em;
+}
+.floating-panel-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--c-text-3);
+  font-size: 0.9rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition: color var(--transition);
+}
+.floating-panel-close:hover { color: var(--c-text); }
+
+/* Scrollable body */
+.floating-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+/* ── DebugPanel content ─────────────────────────────────────────────────────── */
+
+.debug-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.debug-empty {
+  font-size: 0.8rem;
+  color: var(--c-text-3);
+  text-align: center;
+  padding: 1.5rem;
+}
+
+/* Stage card */
+.debug-stage-card {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* Stage header row */
+.debug-stage-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.45rem 0.75rem;
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-border-light);
+}
+.debug-stage-badge {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--c-accent-light);
+  color: var(--c-accent);
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+}
+.debug-stage-meta {
+  font-size: 0.72rem;
+  color: var(--c-text-2);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+/* Collapsible section */
+.debug-section {
+  border-bottom: 1px solid var(--c-border-light);
+}
+.debug-section:last-child { border-bottom: none; }
+
+.debug-section-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  color: var(--c-text);
+  transition: background var(--transition);
+}
+.debug-section-toggle:hover { background: var(--c-accent-light); }
+
+.debug-section-arrow {
+  font-size: 0.65rem;
+  color: var(--c-text-3);
+  width: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Copy button lives inside the toggle row, pushed to the far right */
+.debug-copy-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.66rem;
+  padding: 0.1rem 0.45rem;
+  cursor: pointer;
+  color: var(--c-text-2);
+  font-family: var(--font-body);
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition);
+}
+.debug-copy-btn:hover {
+  background: var(--c-accent-light);
+  color: var(--c-accent);
+  border-color: var(--c-accent);
+}
+
+/* Preformatted body */
+.debug-section-body {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.72rem;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--c-text);
+  background: #FAFAF7;
+  border-top: 1px solid var(--c-border-light);
+  max-height: 260px;
+  overflow-y: auto;
+}
