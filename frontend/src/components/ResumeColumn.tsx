@@ -87,16 +87,15 @@ function SectionBlock({ title, sectionFields, onApproveSection, children }: Sect
     <div className="resume-section">
       <div className="resume-section-header">
         <h3 className="resume-section-title">{title}</h3>
-        {sectionFields.length > 0 && (
-          <button
-            className="section-approve-btn"
-            data-approved={approved}
-            onClick={() => onApproveSection(sectionFields.map(f => f.id), !approved)}
-          >
-            <span className="approve-lock">{approved ? '🔒' : '🔓'}</span>
-            {approved ? ' Approved' : ' Approve'}
-          </button>
-        )}
+        <button
+          className="section-approve-btn"
+          data-approved={approved}
+          disabled={sectionFields.length === 0}
+          onClick={() => onApproveSection(sectionFields.map(f => f.id), !approved)}
+        >
+          <span className="approve-lock">{approved ? '🔒' : '🔓'}</span>
+          {approved ? ' Approved' : ' Approve'}
+        </button>
       </div>
       {children}
     </div>

@@ -564,6 +564,17 @@ body {
   background: var(--c-accent-hover);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.22);
 }
+/* Disabled — all fields cleared; button stays visible but muted */
+.section-approve-btn:disabled {
+  background: var(--c-border);
+  color: var(--c-text-3);
+  box-shadow: none;
+  cursor: default;
+}
+.section-approve-btn:disabled:hover {
+  background: var(--c-border);
+  box-shadow: none;
+}
 
 /* ── Entry block (groups sub-fields for one experience / education entry) ── */
 .resume-entry {
