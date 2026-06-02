@@ -36,13 +36,57 @@ function countWords(text: string): number {
 }
 
 // Strip markdown code fences if the model wraps its JSON in ```json … ```.
+// Also sanitize literal newlines/tabs inside JSON string values — models
+// sometimes output real newlines instead of \n escape sequences, which is
+// invalid JSON and causes JSON.parse to throw.
+function sanitizeJsonString(s: string): string {
+  // Replace unescaped literal newlines, carriage returns, and tabs that appear
+  // inside JSON string values with their escape equivalents.
+  // Strategy: walk character by character tracking whether we're inside a string.
+  let result = ''
+  let inString = false
+  let i = 0
+  while (i < s.length) {
+    const ch = s[i]
+    if (inString) {
+      if (ch === '\\') {
+        // Escaped character — copy both chars and skip
+        result += ch + (s[i + 1] ?? '')
+        i += 2
+        continue
+      } else if (ch === '"') {
+        inString = false
+        result += ch
+      } else if (ch === '\n') {
+        result += '\\n'
+      } else if (ch === '\r') {
+        result += '\\r'
+      } else if (ch === '\t') {
+        result += '\\t'
+      } else {
+        result += ch
+      }
+    } else {
+      if (ch === '"') inString = true
+      result += ch
+    }
+    i++
+  }
+  return result
+}
+
 function parseJson(raw: string): unknown {
   const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
   try {
     return JSON.parse(stripped)
   } catch {
-    console.error('[tailor] JSON parse failed. Raw response:\n', raw)
-    throw new Error('The model returned a response that could not be parsed as JSON.')
+    // Retry after sanitizing literal newlines/tabs inside string values
+    try {
+      return JSON.parse(sanitizeJsonString(stripped))
+    } catch {
+      console.error('[tailor] JSON parse failed. Raw response:\n', raw)
+      throw new Error('The model returned a response that could not be parsed as JSON.')
+    }
   }
 }
 
