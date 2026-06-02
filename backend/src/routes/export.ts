@@ -3,13 +3,13 @@
 // Accepts the structured ExportBody (no longer a flat lines array).
 // Personal details → document header; structured sections → body.
 //
-// Experience entries render as:
-//   Bold header:  "Title · Organization · Dates"  (empty parts omitted)
-//   Body bullets: description split on \n, leading bullet chars stripped
+// Entry layout (experience & education):
+//   Level-0 bullet:  "Title · Organization · Dates"  (bold title, normal rest)
+//   Level-1 bullets: description lines (experience) or advisor/details (education)
+//   No blank paragraphs between entries — tight spacing only.
 //
-// Education entries render as:
-//   Bold header:  "Degree · Institution · Dates"
-//   Plain lines:  advisor, details (if non-empty)
+// Single-item sections (research, skills, additional) use level-0 bullets.
+// Summary is a plain paragraph (no bullet).
 //
 // Font scaling, line spacing, and margin rules unchanged.
 
@@ -70,9 +70,10 @@ const BODY_FONT         = 'Calibri'
 const BODY_SIZE_DEFAULT = 22    // 11pt in half-points
 const BODY_SIZE_MIN     = 20    // 10pt floor
 const LINE_SPACING      = 276   // 1.15 × 240 twips (lineRule=auto)
-const BULLET_SPACING    = 40    // DXA after each bullet
-const BODY_SPACING      = 60    // DXA between body lines
-const SECTION_END       = 120   // DXA after last item in a section
+const BULLET_SPACING    = 40    // DXA after each top-level bullet (research/skills/additional)
+const ENTRY_SPACING     = 80    // DXA after the last line of a non-last exp/edu entry
+const SUB_SPACING       = 20    // DXA between sub-bullets within the same entry
+const SECTION_END       = 120   // DXA after the last item in a section
 
 // ── Utility ───────────────────────────────────────────────────────────────────
 
@@ -95,19 +96,6 @@ function sectionHeader(title: string, size: number): Paragraph {
   return new Paragraph({
     children: [new TextRun({ text: title.toUpperCase(), bold: true, size, color: '2E2E2E', font: BODY_FONT })],
     spacing: { before: 240, after: 80 },
-    // No border — vertical spacing alone separates sections
-  })
-}
-
-// Entry header for Experience / Education — bold title + normal rest
-function entryHeader(titleText: string, rest: string, size: number): Paragraph {
-  const children: TextRun[] = [
-    new TextRun({ text: titleText, bold: true, size, font: BODY_FONT }),
-  ]
-  if (rest) children.push(new TextRun({ text: ` · ${rest}`, size, font: BODY_FONT }))
-  return new Paragraph({
-    children,
-    spacing: { line: LINE_SPACING, lineRule: LineRuleType.AUTO, after: 40 },
   })
 }
 
@@ -118,10 +106,42 @@ function bodyParagraph(text: string, spacingAfter: number, size: number): Paragr
   })
 }
 
+// Level-0 bullet — for research, skills, additional (single-item sections)
 function bulletParagraph(text: string, ref: string, size: number, spacingAfter: number): Paragraph {
   return new Paragraph({
     children: [new TextRun({ text, size, font: BODY_FONT })],
     numbering: { reference: ref, level: 0 },
+    spacing: { line: LINE_SPACING, lineRule: LineRuleType.AUTO, after: spacingAfter },
+  })
+}
+
+// Level-0 bullet with bold title + normal rest — for exp/edu entry headers
+function entryHeaderBullet(
+  titleText: string, rest: string, ref: string, size: number, spacingAfter: number,
+): Paragraph {
+  const children: TextRun[] = []
+  if (titleText) {
+    children.push(new TextRun({ text: titleText, bold: true, size, font: BODY_FONT }))
+  }
+  if (titleText && rest) {
+    children.push(new TextRun({ text: ` · ${rest}`, size, font: BODY_FONT }))
+  } else if (rest) {
+    children.push(new TextRun({ text: rest, size, font: BODY_FONT }))
+  }
+  return new Paragraph({
+    children,
+    numbering: { reference: ref, level: 0 },
+    spacing: { line: LINE_SPACING, lineRule: LineRuleType.AUTO, after: spacingAfter },
+  })
+}
+
+// Level-1 sub-bullet — for description lines (exp) and advisor/details (edu)
+function subBulletParagraph(
+  text: string, ref: string, size: number, spacingAfter: number,
+): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text, size, font: BODY_FONT })],
+    numbering: { reference: ref, level: 1 },
     spacing: { line: LINE_SPACING, lineRule: LineRuleType.AUTO, after: spacingAfter },
   })
 }
@@ -151,32 +171,50 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
     console.log(`[export] Font scaled ${BODY_SIZE_DEFAULT / 2}pt → ${bodySize / 2}pt (estimate: ${estimatedPages.toFixed(2)})`)
   }
 
-  // ── Determine bullet sections ───────────────────────────────────────────────
-  // research + experience descriptions + additional bullet sections get numbering refs
-  const bulletRefNames: string[] = []
+  // ── Numbering references ────────────────────────────────────────────────────
+  // Experience: one ref per entry (level 0 = header, level 1 = description lines)
+  // Education:  one shared ref   (level 0 = header, level 1 = advisor/details)
+  // Research, Skills, Additional: level 0 only
 
-  const expBulletRefs: string[] = []
-  for (let i = 0; i < experience.length; i++) {
-    const ref = `bullets-exp-${i}`
-    expBulletRefs.push(ref)
-    bulletRefNames.push(ref)
+  const expBulletRefs: string[] = experience.map((_, i) => `bullets-exp-${i}`)
+
+  const nonEmptyEdu = education.filter(e =>
+    e.degree.trim() || e.institution.trim() || e.dates.trim()
+  )
+  const nonEmptyResearch = research.filter(r => r.trim())
+  const nonEmptySkills   = skills.filter(s => s.trim())
+
+  const addSections = [...new Set(
+    additional.filter(a => a.text.trim()).map(a => a.section)
+  )]
+
+  // Build level definitions
+  const level0 = {
+    level:     0,
+    format:    LevelFormat.BULLET,
+    text:      '•',
+    alignment: AlignmentType.LEFT,
+    style:     { paragraph: { indent: { left: 360, hanging: 180 } } },
   }
-  if (research.length > 0)  bulletRefNames.push('bullets-research')
-  if (additional.length > 0) {
-    const addSections = [...new Set(additional.map(a => a.section))]
-    addSections.forEach(s => bulletRefNames.push(`bullets-add-${s.toLowerCase().replace(/\s+/g, '-')}`))
+  const level1 = {
+    level:     1,
+    format:    LevelFormat.BULLET,
+    text:      '–',
+    alignment: AlignmentType.LEFT,
+    style:     { paragraph: { indent: { left: 720, hanging: 180 } } },
   }
 
-  const numberingConfig = bulletRefNames.map(reference => ({
-    reference,
-    levels: [{
-      level:     0,
-      format:    LevelFormat.BULLET,
-      text:      '•',
-      alignment: AlignmentType.LEFT,
-      style: { paragraph: { indent: { left: 360, hanging: 180 } } },
-    }],
-  }))
+  const numberingConfig: Array<{ reference: string; levels: typeof level0[] }> = []
+  expBulletRefs.forEach(ref => numberingConfig.push({ reference: ref, levels: [level0, level1] }))
+  if (nonEmptyEdu.length > 0)      numberingConfig.push({ reference: 'bullets-edu',      levels: [level0, level1] })
+  if (nonEmptyResearch.length > 0) numberingConfig.push({ reference: 'bullets-research', levels: [level0] })
+  if (nonEmptySkills.length > 0)   numberingConfig.push({ reference: 'bullets-skills',   levels: [level0] })
+  addSections.forEach(s =>
+    numberingConfig.push({
+      reference: `bullets-add-${s.toLowerCase().replace(/\s+/g, '-')}`,
+      levels: [level0],
+    })
+  )
 
   // ── Build document header ───────────────────────────────────────────────────
   const children: Paragraph[] = []
@@ -184,7 +222,7 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
   // Name
   if (personalDetails.name.trim()) {
     children.push(new Paragraph({
-      children: [new TextRun({ text: personalDetails.name.trim(), bold: true, size: 36, font: BODY_FONT })],
+      children:  [new TextRun({ text: personalDetails.name.trim(), bold: true, size: 36, font: BODY_FONT })],
       alignment: AlignmentType.CENTER,
       spacing:   { before: 0, after: 40 },
     }))
@@ -194,21 +232,20 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
   const contactLine = join(personalDetails.email, personalDetails.phone, personalDetails.location)
   if (contactLine) {
     children.push(new Paragraph({
-      children: [new TextRun({ text: contactLine, size: 20, color: '666666', font: BODY_FONT })],
+      children:  [new TextRun({ text: contactLine, size: 20, color: '666666', font: BODY_FONT })],
       alignment: AlignmentType.CENTER,
       spacing:   { before: 0, after: 80 },
     }))
   }
 
   // Links line: website · linkedin · github · "Google Scholar: {value}"
-  // Google Scholar may be a name or URL — always label it for clarity.
   const scholarFormatted = personalDetails.googleScholar.trim()
     ? `Google Scholar: ${personalDetails.googleScholar.trim()}`
     : ''
   const linksLine = join(personalDetails.website, personalDetails.linkedin, personalDetails.github, scholarFormatted)
   if (linksLine) {
     children.push(new Paragraph({
-      children: [new TextRun({ text: linksLine, size: 20, color: '666666', font: BODY_FONT })],
+      children:  [new TextRun({ text: linksLine, size: 20, color: '666666', font: BODY_FONT })],
       alignment: AlignmentType.CENTER,
       spacing:   { before: 0, after: 240 },
     }))
@@ -221,6 +258,7 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
   }
 
   // ── Experience ───────────────────────────────────────────────────────────────
+  // Each entry: level-0 bullet for the header, level-1 bullets for description lines.
   const nonEmptyExp = experience.filter(e =>
     e.title.trim() || e.organization.trim() || e.dates.trim() || e.description.trim()
   )
@@ -229,71 +267,69 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
 
     nonEmptyExp.forEach((e, i) => {
       const isLastEntry = i === nonEmptyExp.length - 1
-
-      // Role header: "Title" bold + " · Organization · Dates" normal
+      const ref         = expBulletRefs[experience.indexOf(e)] ?? `bullets-exp-${i}`
+      const lines       = descriptionLines(e.description)
       const headerTitle = e.title.trim()
       const headerRest  = join(e.organization, e.dates)
+
       if (headerTitle || headerRest) {
-        children.push(entryHeader(headerTitle || headerRest, headerTitle ? headerRest : '', bodySize))
+        // Tight gap before sub-bullets; entry gap (or section end) if no sub-bullets
+        const headerAfter = lines.length > 0
+          ? SUB_SPACING
+          : (isLastEntry ? SECTION_END : ENTRY_SPACING)
+        children.push(entryHeaderBullet(
+          headerTitle || headerRest,
+          headerTitle ? headerRest : '',
+          ref, bodySize, headerAfter,
+        ))
       }
 
-      // Description bullets
-      const lines = descriptionLines(e.description)
-      const ref   = expBulletRefs[experience.indexOf(e)] ?? `bullets-exp-${i}`
       lines.forEach((line, li) => {
-        const isLastLine = isLastEntry && li === lines.length - 1
-        children.push(bulletParagraph(line, ref, bodySize, isLastLine ? SECTION_END : BULLET_SPACING))
+        const isLastLine = li === lines.length - 1
+        const after = isLastLine
+          ? (isLastEntry ? SECTION_END : ENTRY_SPACING)
+          : SUB_SPACING
+        children.push(subBulletParagraph(line, ref, bodySize, after))
       })
-
-      // Gap between entries (not after last one — SECTION_END handled above)
-      if (!isLastEntry) {
-        children.push(new Paragraph({ children: [], spacing: { after: 80 } }))
-      }
     })
   }
 
   // ── Education ────────────────────────────────────────────────────────────────
-  const nonEmptyEdu = education.filter(e =>
-    e.degree.trim() || e.institution.trim() || e.dates.trim()
-  )
+  // Each entry: level-0 bullet for degree header, level-1 bullets for advisor/details.
   if (nonEmptyEdu.length > 0) {
     children.push(sectionHeader('Education', bodySize))
 
     nonEmptyEdu.forEach((e, i) => {
       const isLastEntry = i === nonEmptyEdu.length - 1
-
-      // Degree header: "Degree" bold + " · Institution · Dates"
       const degreeTitle = e.degree.trim()
       const degreeRest  = join(e.institution, e.dates)
-      if (degreeTitle || degreeRest) {
-        children.push(entryHeader(degreeTitle || degreeRest, degreeTitle ? degreeRest : '', bodySize))
-      }
-
-      // Advisor and details as plain lines; advisor prefixed for readability
-      const subLines = [
+      const subLines    = [
         e.advisor.trim() ? `Advisor: ${e.advisor.trim()}` : '',
         e.details.trim(),
       ].filter(Boolean)
+
+      if (degreeTitle || degreeRest) {
+        const headerAfter = subLines.length > 0
+          ? SUB_SPACING
+          : (isLastEntry ? SECTION_END : ENTRY_SPACING)
+        children.push(entryHeaderBullet(
+          degreeTitle || degreeRest,
+          degreeTitle ? degreeRest : '',
+          'bullets-edu', bodySize, headerAfter,
+        ))
+      }
+
       subLines.forEach((line, li) => {
-        const isLast = isLastEntry && li === subLines.length - 1
-        children.push(bodyParagraph(line, isLast ? SECTION_END : BODY_SPACING, bodySize))
+        const isLastLine = li === subLines.length - 1
+        const after = isLastLine
+          ? (isLastEntry ? SECTION_END : ENTRY_SPACING)
+          : SUB_SPACING
+        children.push(subBulletParagraph(line, 'bullets-edu', bodySize, after))
       })
-
-      // If no sub-lines, still add section end spacing on last entry
-      if (subLines.length === 0 && isLastEntry) {
-        // Adjust the header paragraph's after spacing retroactively is not possible in docx-js,
-        // so push a zero-height spacer
-        children.push(new Paragraph({ children: [], spacing: { after: SECTION_END } }))
-      }
-
-      if (!isLastEntry) {
-        children.push(new Paragraph({ children: [], spacing: { after: 80 } }))
-      }
     })
   }
 
   // ── Research ─────────────────────────────────────────────────────────────────
-  const nonEmptyResearch = research.filter(r => r.trim())
   if (nonEmptyResearch.length > 0) {
     children.push(sectionHeader('Research', bodySize))
     nonEmptyResearch.forEach((r, i) => {
@@ -303,14 +339,15 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
   }
 
   // ── Skills ───────────────────────────────────────────────────────────────────
-  const nonEmptySkills = skills.filter(s => s.trim())
   if (nonEmptySkills.length > 0) {
     children.push(sectionHeader('Skills', bodySize))
-    children.push(bodyParagraph(nonEmptySkills.join(' · '), SECTION_END, bodySize))
+    nonEmptySkills.forEach((s, i) => {
+      const isLast = i === nonEmptySkills.length - 1
+      children.push(bulletParagraph(s, 'bullets-skills', bodySize, isLast ? SECTION_END : BULLET_SPACING))
+    })
   }
 
   // ── Additional sections ───────────────────────────────────────────────────────
-  // Group by section name, render each group under its own header
   const addBySectionName: Record<string, string[]> = {}
   for (const a of additional) {
     if (!a.text.trim()) continue
