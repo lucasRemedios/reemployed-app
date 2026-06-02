@@ -112,7 +112,9 @@ function Card({ field, label, multiline, bulletPoints, textPrefix, shared }: {
   field: UIField; label: string; multiline?: boolean
   bulletPoints?: boolean; textPrefix?: string; shared: SharedProps
 }) {
-  if (!ne(field)) return null   // skip empty fields entirely
+  // Hide fields that were never populated. Keep fields the user explicitly
+  // cleared (field.edited=true) so they remain visible and re-editable.
+  if (!ne(field) && !field.edited) return null
   return (
     <FieldCard
       field={field}
@@ -270,12 +272,9 @@ export function ResumeColumn({ data, estimatedPages, onApproveSection, onSave, o
         {/* ── Research ──────────────────────────────────────────────────────── */}
         {resFields.length > 0 && (
           <SectionBlock title="Research" sectionFields={resFields} onApproveSection={onApproveSection}>
-            {/* research-plain-items removes card chrome — renders as plain text lines */}
-            <div className="research-plain-items">
-              {resFields.map((f, i) => (
-                <Card key={f.id} field={f} label={`Research ${i + 1}`} shared={shared} />
-              ))}
-            </div>
+            {resFields.map((f, i) => (
+              <Card key={f.id} field={f} label={`Research ${i + 1}`} shared={shared} />
+            ))}
           </SectionBlock>
         )}
 
