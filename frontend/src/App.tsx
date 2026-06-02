@@ -218,7 +218,7 @@ const MAX_JOB_WORDS        = 2_000
 const MAX_BACKGROUND_WORDS = 2_000
 
 // Shown instead of raw server errors for 5xx / parse failures.
-const FRIENDLY_ERROR = "Something went wrong. Please try again — if it keeps happening, try shortening your background text."
+const FRIENDLY_ERROR = "Something went wrong. Please try again.\nIf it persists, try shortening your inputs."
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
