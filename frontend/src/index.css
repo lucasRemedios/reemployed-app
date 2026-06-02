@@ -178,30 +178,6 @@ body {
   margin-bottom: 0.3rem;
 }
 
-/* Retry button — appears below the error message on 5xx / parse failures */
-.retry-button {
-  display: block;
-  margin: 0 auto 0.5rem;
-  font-family: var(--font-body);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--c-accent);
-  background: transparent;
-  border: 1.5px solid var(--c-accent);
-  border-radius: var(--radius-sm);
-  padding: 0.2rem 0.9rem;
-  cursor: pointer;
-  transition: background var(--transition), color var(--transition);
-}
-.retry-button:hover:not(:disabled) {
-  background: var(--c-accent);
-  color: #fff;
-}
-.retry-button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 /* Right zone: empty spacer mirrors left width for true centering */
 .app-header-right {
   flex: 1;

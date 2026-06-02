@@ -214,8 +214,8 @@ function buildExportBody(data: UIResumeData, estimatedPages: number) {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const MAX_JOB_WORDS        = 5_000
-const MAX_BACKGROUND_WORDS = 15_000
+const MAX_JOB_WORDS        = 2_000
+const MAX_BACKGROUND_WORDS = 2_000
 
 // Shown instead of raw server errors for 5xx / parse failures.
 const FRIENDLY_ERROR = "Something went wrong. Please try again — if it keeps happening, try shortening your background text."
@@ -229,8 +229,6 @@ export default function App() {
   const [status,       setStatus]      = useState<AppStatus>({ kind: 'idle' })
   const [hasTailored,  setHasTailored] = useState(false)
   const [debugData,    setDebugData]   = useState<StageDebugInfo[] | null>(null)
-  const [canRetry,     setCanRetry]    = useState(false)
-
   const jobPostingFieldRef = useRef<TextareaFieldHandle>(null)
   const backgroundFieldRef = useRef<TextareaFieldHandle>(null)
 
@@ -263,12 +261,10 @@ export default function App() {
   async function handleTailorClick() {
     const validationError = validateInputs()
     if (validationError) {
-      setCanRetry(false)
       setStatus({ kind: 'error', message: validationError })
       return
     }
 
-    setCanRetry(false)   // reset before each new attempt
     jobPostingFieldRef.current?.setHighlight(null)
     backgroundFieldRef.current?.setHighlight(null)
     setHasTailored(true)
@@ -306,7 +302,6 @@ export default function App() {
     } catch (err) {
       const message = err instanceof Error ? err.message : FRIENDLY_ERROR
       setStatus({ kind: 'error', message })
-      setCanRetry(true)
     }
   }
 
@@ -390,7 +385,7 @@ export default function App() {
             </div>
             <p className="tagline">Get a resume grounded in what you've actually done.</p>
             <p className="app-steps">
-              Paste a job → Paste your background → Tailor → Approve → Download
+              Paste a job → Paste your resume → Tailor → Edit & Approve → Download
             </p>
           </div>
 
@@ -399,15 +394,6 @@ export default function App() {
             <p className="header-error" aria-live="polite">
               {status.kind === 'error' ? status.message : ''}
             </p>
-            {status.kind === 'error' && canRetry && (
-              <button
-                className="retry-button"
-                onClick={handleTailorClick}
-                disabled={isLoading}
-              >
-                Try again
-              </button>
-            )}
             <button
               className="tailor-button"
               onClick={handleTailorClick}
@@ -431,7 +417,7 @@ export default function App() {
           <TextareaField
             ref={jobPostingFieldRef}
             label="Job Posting"
-            hint="Paste the full job description"
+            hint="Paste the job description"
             value={jobPosting}
             onChange={setJobPosting}
             placeholder="Paste the full job posting here."
@@ -444,7 +430,7 @@ export default function App() {
           <TextareaField
             ref={backgroundFieldRef}
             label="Your Background"
-            hint="Paste your resume. More context is better. Projects, notes, rough thoughts. Messy is fine."
+            hint="Paste your resume"
             value={background}
             onChange={setBackground}
             placeholder="Write everything relevant: roles, projects, papers, outcomes, skills."

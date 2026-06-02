@@ -28,8 +28,8 @@ type StageDebugInfo = {
   contextWindow?: number   // total context limit for this model (input + output)
 }
 
-const MAX_JOB_WORDS        = 5_000
-const MAX_BACKGROUND_WORDS = 15_000
+const MAX_JOB_WORDS        = 2_000
+const MAX_BACKGROUND_WORDS = 2_000
 
 function countWords(text: string): number {
   return text.trim() === '' ? 0 : text.trim().split(/\s+/).length
