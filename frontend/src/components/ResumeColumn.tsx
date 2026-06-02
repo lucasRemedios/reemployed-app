@@ -1,9 +1,9 @@
 // ResumeColumn.tsx — structured resume renderer.
 //
 // Three rules enforced here:
-//   1. Empty fields are never rendered (no box, no label, no placeholder).
-//      If an entire entry has no non-empty fields, the entry is omitted.
-//      If a section has no entries with content, the section header is omitted.
+//   1. Fields the LLM left blank (never populated) are not rendered.
+//      Fields the user explicitly cleared (field.edited=true) stay visible so they can be re-edited.
+//      Approval counting uses ne() (text non-empty); visibility uses hasContent() (text OR edited).
 //   2. One approve button per section, at the section header level.
 //      Clicking it sets ALL non-empty fields in that section to approved (or toggles all off).
 //   3. The counter shows section-level X / Y (not field count).
@@ -26,6 +26,8 @@ type Props = {
 
 function ne(f: UIField): boolean { return f.text.trim() !== '' }   // non-empty
 function neFields(fields: UIField[]): UIField[] { return fields.filter(ne) }
+// hasContent: true when field has text OR was explicitly edited (keeps cleared fields visible)
+function hasContent(f: UIField): boolean { return f.text.trim() !== '' || f.edited }
 
 // Section is approved when every non-empty field in it is approved
 function sectionApproved(fields: UIField[]): boolean {
@@ -132,8 +134,8 @@ function Card({ field, label, multiline, bulletPoints, textPrefix, shared }: {
 // ── Entry blocks ──────────────────────────────────────────────────────────────
 
 function ExperienceBlock({ entry, shared }: { entry: UIExperienceEntry; shared: SharedProps }) {
-  const fields = neFields([entry.title, entry.organization, entry.dates, entry.description])
-  if (fields.length === 0) return null
+  const hasAny = [entry.title, entry.organization, entry.dates, entry.description].some(hasContent)
+  if (!hasAny) return null
   return (
     <div className="resume-entry">
       <Card field={entry.title}        label="Title"        shared={shared} />
@@ -146,8 +148,8 @@ function ExperienceBlock({ entry, shared }: { entry: UIExperienceEntry; shared: 
 }
 
 function EducationBlock({ entry, shared }: { entry: UIEducationEntry; shared: SharedProps }) {
-  const fields = neFields([entry.degree, entry.institution, entry.dates, entry.advisor, entry.details])
-  if (fields.length === 0) return null
+  const hasAny = [entry.degree, entry.institution, entry.dates, entry.advisor, entry.details].some(hasContent)
+  if (!hasAny) return null
   return (
     // resume-entry--education tightens the inter-entry gap (education entries are short)
     <div className="resume-entry resume-entry--education">
@@ -172,27 +174,38 @@ export function ResumeColumn({ data, estimatedPages, onApproveSection, onSave, o
   const shared: SharedProps = { onSave, onHover: onFieldHover }
 
   // ── Pre-compute which sections have content ─────────────────────────────────
-  const pdFields   = neFields(Object.values(data.personalDetails) as UIField[])
+  const pdFields   = neFields(Object.values(data.personalDetails) as UIField[])    // for approval
+  const pdVisible  = (Object.values(data.personalDetails) as UIField[]).filter(hasContent)  // for rendering
   const expEntries = data.experience.filter(e =>
-    neFields([e.title, e.organization, e.dates, e.description]).length > 0
+    [e.title, e.organization, e.dates, e.description].some(hasContent)
   )
   const expFields  = neFields(data.experience.flatMap(e =>
     [e.title, e.organization, e.dates, e.description]
   ))
   const eduEntries = data.education.filter(e =>
-    neFields([e.degree, e.institution, e.dates, e.advisor, e.details]).length > 0
+    [e.degree, e.institution, e.dates, e.advisor, e.details].some(hasContent)
   )
   const eduFields  = neFields(data.education.flatMap(e =>
     [e.degree, e.institution, e.dates, e.advisor, e.details]
   ))
-  const resFields  = neFields(data.research)
-  const sklFields  = neFields(data.skills)
+  const resFields   = neFields(data.research)              // for approval counting
+  const resVisible  = data.research.filter(hasContent)     // for rendering (keeps edited-empty)
+  const sklFields   = neFields(data.skills)                // for approval counting
+  const sklVisible  = data.skills.filter(hasContent)       // for rendering
 
+  // addBySectionName: for rendering, include edited-empty fields (hasContent)
+  // addFieldsBySectionName: for approval counting, only non-empty (ne)
   const addBySectionName: Record<string, UIAdditionalEntry[]> = {}
+  const addFieldsBySectionName: Record<string, UIAdditionalEntry[]> = {}
   for (const f of data.additional) {
-    if (!ne(f)) continue
-    if (!addBySectionName[f.section]) addBySectionName[f.section] = []
-    addBySectionName[f.section].push(f)
+    if (hasContent(f)) {
+      if (!addBySectionName[f.section]) addBySectionName[f.section] = []
+      addBySectionName[f.section].push(f)
+    }
+    if (ne(f)) {
+      if (!addFieldsBySectionName[f.section]) addFieldsBySectionName[f.section] = []
+      addFieldsBySectionName[f.section].push(f)
+    }
   }
 
   return (
@@ -231,7 +244,7 @@ export function ResumeColumn({ data, estimatedPages, onApproveSection, onSave, o
       <div className="resume-lines">
 
         {/* ── Personal Details ─────────────────────────────────────────────── */}
-        {pdFields.length > 0 && (
+        {pdVisible.length > 0 && (
           <SectionBlock title="Personal Details" sectionFields={pdFields} onApproveSection={onApproveSection}>
             <Card field={data.personalDetails.name}          label="Name"          shared={shared} />
             <Card field={data.personalDetails.email}         label="Email"         shared={shared} />
@@ -245,8 +258,8 @@ export function ResumeColumn({ data, estimatedPages, onApproveSection, onSave, o
         )}
 
         {/* ── Summary ──────────────────────────────────────────────────────── */}
-        {ne(data.summary) && (
-          <SectionBlock title="Summary" sectionFields={[data.summary]} onApproveSection={onApproveSection}>
+        {hasContent(data.summary) && (
+          <SectionBlock title="Summary" sectionFields={ne(data.summary) ? [data.summary] : []} onApproveSection={onApproveSection}>
             <Card field={data.summary} label="Summary" shared={shared} multiline />
           </SectionBlock>
         )}
@@ -270,18 +283,18 @@ export function ResumeColumn({ data, estimatedPages, onApproveSection, onSave, o
         )}
 
         {/* ── Research ──────────────────────────────────────────────────────── */}
-        {resFields.length > 0 && (
+        {resVisible.length > 0 && (
           <SectionBlock title="Research" sectionFields={resFields} onApproveSection={onApproveSection}>
-            {resFields.map((f, i) => (
+            {resVisible.map((f, i) => (
               <Card key={f.id} field={f} label={`Research ${i + 1}`} shared={shared} />
             ))}
           </SectionBlock>
         )}
 
         {/* ── Skills ────────────────────────────────────────────────────────── */}
-        {sklFields.length > 0 && (
+        {sklVisible.length > 0 && (
           <SectionBlock title="Skills" sectionFields={sklFields} onApproveSection={onApproveSection}>
-            {sklFields.map((f, i) => (
+            {sklVisible.map((f, i) => (
               <Card key={f.id} field={f} label={`Skills ${i + 1}`} shared={shared} />
             ))}
           </SectionBlock>
@@ -292,7 +305,7 @@ export function ResumeColumn({ data, estimatedPages, onApproveSection, onSave, o
           <SectionBlock
             key={sectionName}
             title={sectionName}
-            sectionFields={entries}
+            sectionFields={addFieldsBySectionName[sectionName] ?? []}
             onApproveSection={onApproveSection}
           >
             {entries.map(f => (
