@@ -94,11 +94,12 @@ export async function callSingleStageDetailed(
   console.log(`[llmClient] Single-stage calling ${MODEL} | system: ${systemPrompt.length} chars | user: ${userMessage.length} chars`)
 
   const completion = await client.chat.completions.create({
-    model:    MODEL,
+    model:      MODEL,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user',   content: userMessage  },
     ],
+    max_tokens: 4000,   // prevent mid-JSON truncation on longer inputs
   })
 
   const content = completion.choices[0]?.message?.content

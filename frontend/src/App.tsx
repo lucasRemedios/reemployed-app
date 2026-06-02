@@ -217,6 +217,9 @@ function buildExportBody(data: UIResumeData, estimatedPages: number) {
 const MAX_JOB_WORDS        = 5_000
 const MAX_BACKGROUND_WORDS = 15_000
 
+// Shown instead of raw server errors for 5xx / parse failures.
+const FRIENDLY_ERROR = "Something went wrong. Please try again — if it keeps happening, try shortening your background text."
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -226,6 +229,7 @@ export default function App() {
   const [status,       setStatus]      = useState<AppStatus>({ kind: 'idle' })
   const [hasTailored,  setHasTailored] = useState(false)
   const [debugData,    setDebugData]   = useState<StageDebugInfo[] | null>(null)
+  const [canRetry,     setCanRetry]    = useState(false)
 
   const jobPostingFieldRef = useRef<TextareaFieldHandle>(null)
   const backgroundFieldRef = useRef<TextareaFieldHandle>(null)
@@ -259,10 +263,12 @@ export default function App() {
   async function handleTailorClick() {
     const validationError = validateInputs()
     if (validationError) {
+      setCanRetry(false)
       setStatus({ kind: 'error', message: validationError })
       return
     }
 
+    setCanRetry(false)   // reset before each new attempt
     jobPostingFieldRef.current?.setHighlight(null)
     backgroundFieldRef.current?.setHighlight(null)
     setHasTailored(true)
@@ -277,14 +283,19 @@ export default function App() {
 
       const data = await response.json() as Record<string, unknown>
 
-      // Always capture debug data first — it may be present even on error responses
-      // (e.g. parse failure after a successful LLM call).
+      // Always capture debug data first — it is present even on error responses
+      // (e.g. parse failure after a successful LLM call returns truncated JSON).
       if (Array.isArray(data.debug)) {
         setDebugData(data.debug as StageDebugInfo[])
       }
 
       if (!response.ok) {
-        throw new Error(typeof data.error === 'string' ? data.error : 'Server error')
+        // 5xx (parse failure, timeout, etc.) → friendly retry message.
+        // 4xx (word count exceeded, missing field) → server's specific message.
+        const msg = response.status >= 500
+          ? FRIENDLY_ERROR
+          : (typeof data.error === 'string' ? data.error : FRIENDLY_ERROR)
+        throw new Error(msg)
       }
 
       const resume = data.resume as Parameters<typeof convertApiToUIData>[0]
@@ -293,8 +304,9 @@ export default function App() {
       setStatus({ kind: 'done' })
 
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      const message = err instanceof Error ? err.message : FRIENDLY_ERROR
       setStatus({ kind: 'error', message })
+      setCanRetry(true)
     }
   }
 
@@ -382,11 +394,20 @@ export default function App() {
             </p>
           </div>
 
-          {/* Center: error (reserved height) + Tailor button */}
+          {/* Center: error + optional retry + Tailor button */}
           <div className="app-header-center">
             <p className="header-error" aria-live="polite">
               {status.kind === 'error' ? status.message : ''}
             </p>
+            {status.kind === 'error' && canRetry && (
+              <button
+                className="retry-button"
+                onClick={handleTailorClick}
+                disabled={isLoading}
+              >
+                Try again
+              </button>
+            )}
             <button
               className="tailor-button"
               onClick={handleTailorClick}
