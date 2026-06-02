@@ -6,8 +6,12 @@
 import type { UIResumeData, UIField } from '../types'
 
 const CHARS_PER_LINE   = 65   // approx chars per text line at 11pt Calibri, 6.5" content width
-const LINES_PER_PAGE   = 40   // usable body-line slots per page (conservative; 11pt × 1.15 ≈ 12.65pt/line, 9" content)
-const NAME_BLOCK_LINES = 5    // name (18pt+2pt after) + contact (10pt+4pt) + links (10pt+8pt) + rule (8pt) ≈ 60pt / 12.65 ≈ 4.74
+// 9" content height = 648pt; Calibri 11pt × 1.15 line spacing = 12.65pt/line → ~51 lines/page.
+// Using 50 (slightly under theoretical) as a safe but accurate figure.
+const LINES_PER_PAGE   = 50
+// name (18pt+2pt) + contact (10pt+4pt) + links (10pt+12pt, 240 DXA after) ≈ 51pt / 12.65 ≈ 4.0
+// No full-width HR in the docx any more, so the old 5-line estimate was too high.
+const NAME_BLOCK_LINES = 4
 // Each section header costs ~2.5 body lines:
 //   before:240 DXA (12pt) + header text (1 line) + after:80 DXA (4pt) + SECTION_END:120 DXA (6pt) ≈ 28.65pt / 12.65
 const LINES_PER_SECTION = 2.5

@@ -66,7 +66,7 @@ function getEstimateText(pages: number, approvedCount: number): string {
   if (approvedCount === 0 || pages <= 0) return ''
   if (pages < 0.95)  return `about ${Math.round(pages * 100)}% of a page`
   if (pages <= 1.05) return 'about 1 page ✓'
-  if (pages <= 1.5)  return `about ${pages.toFixed(1)} pages — trim a few lines`
+  if (pages <= 1.5)  return `about ${pages.toFixed(1)} pages`
   return `about ${Math.round(pages)} pages — consider cutting content`
 }
 
@@ -108,8 +108,9 @@ type SharedProps = {
   onHover: (field: UIField | null) => void
 }
 
-function Card({ field, label, multiline, shared }: {
-  field: UIField; label: string; multiline?: boolean; shared: SharedProps
+function Card({ field, label, multiline, bulletPoints, textPrefix, shared }: {
+  field: UIField; label: string; multiline?: boolean
+  bulletPoints?: boolean; textPrefix?: string; shared: SharedProps
 }) {
   if (!ne(field)) return null   // skip empty fields entirely
   return (
@@ -117,6 +118,8 @@ function Card({ field, label, multiline, shared }: {
       field={field}
       label={label}
       multiline={multiline}
+      bulletPoints={bulletPoints}
+      textPrefix={textPrefix}
       onSave={shared.onSave}
       onHoverStart={(f) => shared.onHover(f)}
       onHoverEnd={() => shared.onHover(null)}
@@ -134,7 +137,8 @@ function ExperienceBlock({ entry, shared }: { entry: UIExperienceEntry; shared: 
       <Card field={entry.title}        label="Title"        shared={shared} />
       <Card field={entry.organization} label="Organization" shared={shared} />
       <Card field={entry.dates}        label="Dates"        shared={shared} />
-      <Card field={entry.description}  label="Description"  shared={shared} multiline />
+      {/* bulletPoints splits on \n and renders each segment as a <li> */}
+      <Card field={entry.description}  label="Description"  shared={shared} multiline bulletPoints />
     </div>
   )
 }
@@ -143,11 +147,13 @@ function EducationBlock({ entry, shared }: { entry: UIEducationEntry; shared: Sh
   const fields = neFields([entry.degree, entry.institution, entry.dates, entry.advisor, entry.details])
   if (fields.length === 0) return null
   return (
-    <div className="resume-entry">
+    // resume-entry--education tightens the inter-entry gap (education entries are short)
+    <div className="resume-entry resume-entry--education">
       <Card field={entry.degree}      label="Degree"      shared={shared} />
       <Card field={entry.institution} label="Institution" shared={shared} />
       <Card field={entry.dates}       label="Dates"       shared={shared} />
-      <Card field={entry.advisor}     label="Advisor"     shared={shared} />
+      {/* textPrefix is display-only — the stored value remains the bare name */}
+      <Card field={entry.advisor}     label="Advisor"     textPrefix="Advisor: " shared={shared} />
       <Card field={entry.details}     label="Details"     shared={shared} multiline />
     </div>
   )
@@ -232,7 +238,7 @@ export function ResumeColumn({ data, estimatedPages, onApproveSection, onSave, o
             <Card field={data.personalDetails.website}       label="Website"       shared={shared} />
             <Card field={data.personalDetails.linkedin}      label="LinkedIn"      shared={shared} />
             <Card field={data.personalDetails.github}        label="GitHub"        shared={shared} />
-            <Card field={data.personalDetails.googleScholar} label="Google Scholar" shared={shared} />
+            <Card field={data.personalDetails.googleScholar} label="Google Scholar" textPrefix="Google Scholar: " shared={shared} />
           </SectionBlock>
         )}
 
@@ -264,9 +270,12 @@ export function ResumeColumn({ data, estimatedPages, onApproveSection, onSave, o
         {/* ── Research ──────────────────────────────────────────────────────── */}
         {resFields.length > 0 && (
           <SectionBlock title="Research" sectionFields={resFields} onApproveSection={onApproveSection}>
-            {resFields.map((f, i) => (
-              <Card key={f.id} field={f} label={`Research ${i + 1}`} shared={shared} />
-            ))}
+            {/* research-plain-items removes card chrome — renders as plain text lines */}
+            <div className="research-plain-items">
+              {resFields.map((f, i) => (
+                <Card key={f.id} field={f} label={`Research ${i + 1}`} shared={shared} />
+              ))}
+            </div>
           </SectionBlock>
         )}
 

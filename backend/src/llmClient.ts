@@ -1,23 +1,26 @@
 // llmClient.ts — the ONLY file that knows which LLM provider we're using.
 //
-// Current provider: Groq (https://groq.com)
-// Groq runs open-source models (Llama, Mixtral) on custom LPU hardware —
-// extremely fast inference, generous free tier, OpenAI-compatible API.
-//
-// To swap providers (e.g. to Claude or OpenAI), rewrite only this file.
-// Everything else in the codebase calls callLLM() and never knows the difference.
+// Provider: Groq (https://groq.com) for both pipelines.
+//   Two-stage  → GROQ_MODEL          (default: llama-3.3-70b-versatile)
+//   Single-stage → SINGLE_STAGE_MODEL (default: openai/gpt-oss-120b)
 //
 // Interface contract:
-//   callLLM(systemPrompt, userMessage) → Promise<string>
-//   callLLMDetailed(systemPrompt, userMessage) → Promise<LLMCallResult>
-//   The returned string/content is always the raw text content from the model.
+//   callLLM(system, user)               → Promise<string>         (two-stage)
+//   callLLMDetailed(system, user)       → Promise<LLMCallResult>  (two-stage)
+//   callSingleStageDetailed(system, user) → Promise<LLMCallResult> (single-stage)
 
 import Groq from 'groq-sdk'
 
-// Lazy singleton — the client is created the first time callLLMDetailed() is called,
-// not when this module is imported. This matters because ES module imports are
-// hoisted and run before dotenv.config() in index.ts, so process.env would be
-// empty if we instantiated the client at the top level.
+// Known context window sizes (total tokens = input + output) for models on Groq.
+// Verify values at https://console.groq.com/docs/rate-limits before relying on them.
+export const MODEL_CONTEXT_LIMITS: Record<string, number> = {
+  'llama-3.3-70b-versatile': 128_000,
+  'llama-3.1-8b-instant':    131_072,
+  'openai/gpt-oss-120b':     131_072,  // TODO: verify at console.groq.com/docs/rate-limits
+}
+
+// Lazy singleton — created on first call, not at import time, so dotenv.config()
+// in config.ts has already run before process.env is read.
 let _client: Groq | null = null
 
 function getClient(): Groq {
@@ -40,8 +43,7 @@ export type LLMCallResult = {
   }
 }
 
-// Full implementation — returns content, model name, and token usage.
-// Used by the debug panel and as the backing implementation for callLLM.
+// Two-stage pipeline — uses GROQ_MODEL, response_format json_object, temp 0.3.
 export async function callLLMDetailed(
   systemPrompt: string,
   userMessage:  string,
@@ -53,14 +55,11 @@ export async function callLLMDetailed(
   const completion = await client.chat.completions.create({
     model: MODEL,
     messages: [
-      { role: 'system',  content: systemPrompt },
-      { role: 'user',    content: userMessage  },
+      { role: 'system', content: systemPrompt },
+      { role: 'user',   content: userMessage  },
     ],
-    // Ask the model to respond with valid JSON only.
-    // Not all models support this — if it causes errors, remove it and
-    // rely on the prompt instruction alone.
     response_format: { type: 'json_object' },
-    temperature: 0.3,  // lower = more focused/deterministic output
+    temperature: 0.3,
   })
 
   const content = completion.choices[0]?.message?.content
@@ -81,4 +80,38 @@ export async function callLLMDetailed(
 // Backward-compatible wrapper — returns just the string content.
 export async function callLLM(systemPrompt: string, userMessage: string): Promise<string> {
   return (await callLLMDetailed(systemPrompt, userMessage)).content
+}
+
+// Single-stage pipeline — uses SINGLE_STAGE_MODEL via the same Groq key.
+// No response_format or temperature: reasoning models (openai/gpt-oss-120b)
+// may not support them; JSON output is enforced by the prompt alone.
+export async function callSingleStageDetailed(
+  systemPrompt: string,
+  userMessage:  string,
+): Promise<LLMCallResult> {
+  const client = getClient()
+  const MODEL  = process.env.SINGLE_STAGE_MODEL ?? 'openai/gpt-oss-120b'
+  console.log(`[llmClient] Single-stage calling ${MODEL} | system: ${systemPrompt.length} chars | user: ${userMessage.length} chars`)
+
+  const completion = await client.chat.completions.create({
+    model:    MODEL,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user',   content: userMessage  },
+    ],
+  })
+
+  const content = completion.choices[0]?.message?.content
+  if (!content) throw new Error('Groq returned an empty response (single-stage)')
+
+  console.log(`[llmClient] Single-stage response: ${content.length} chars`)
+
+  const raw   = completion.usage
+  const usage = raw ? {
+    promptTokens:     raw.prompt_tokens,
+    completionTokens: raw.completion_tokens,
+    totalTokens:      raw.total_tokens,
+  } : undefined
+
+  return { content, model: MODEL, usage }
 }

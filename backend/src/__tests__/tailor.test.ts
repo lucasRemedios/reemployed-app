@@ -59,10 +59,11 @@ const BACKGROUND =
   'Built TypeScript and React applications.'
 
 const VALID_STAGE1 = JSON.stringify({
-  roleArchetype:  'SWE at a product company',
-  whatRoleValues: ['TypeScript expertise', 'React experience'],
-  fitAssessment:  'Strong fit for TypeScript and React candidates.',
-  gaps:           ['May lack senior leadership experience'],
+  roleArchetype:    'SWE at a product company',
+  whatRoleValues:   ['TypeScript expertise', 'React experience'],
+  hardRequirements: ['TypeScript', 'React'],
+  fitAssessment:    'Strong fit for TypeScript and React candidates.',
+  gaps:             ['May lack senior leadership experience'],
 })
 
 const VALID_STAGE2 = JSON.stringify({

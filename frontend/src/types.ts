@@ -17,10 +17,11 @@ export type TailorRequest = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type PositioningStrategy = {
-  roleArchetype:  string
-  whatRoleValues: string[]
-  fitAssessment:  string
-  gaps:           string[]
+  roleArchetype:    string
+  whatRoleValues:   string[]
+  hardRequirements: string[]
+  fitAssessment:    string
+  gaps:             string[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -103,7 +104,7 @@ export type TokenUsage = {
 }
 
 export type StageDebugInfo = {
-  stage:          1 | 2
+  stage:          1 | 2 | 'single'
   model:          string
   systemPrompt:   string
   userMessage:    string
@@ -112,6 +113,7 @@ export type StageDebugInfo = {
   parseError:     string | null
   latencyMs:      number
   tokenUsage:     TokenUsage | null
+  contextWindow?: number   // model's total context limit (input + output tokens)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -277,6 +277,12 @@ export default function App() {
 
       const data = await response.json() as Record<string, unknown>
 
+      // Always capture debug data first — it may be present even on error responses
+      // (e.g. parse failure after a successful LLM call).
+      if (Array.isArray(data.debug)) {
+        setDebugData(data.debug as StageDebugInfo[])
+      }
+
       if (!response.ok) {
         throw new Error(typeof data.error === 'string' ? data.error : 'Server error')
       }

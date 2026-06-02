@@ -18,16 +18,18 @@ import { useState, useRef, useEffect } from 'react'
 import type { UIField } from '../types'
 
 type Props = {
-  field:        UIField
-  label:        string
-  multiline?:   boolean   // true → Enter inserts newline; display uses white-space: pre-line
-  onSave:       (id: string, newText: string) => void
-  onHoverStart: (field: UIField) => void
-  onHoverEnd:   () => void
+  field:         UIField
+  label:         string
+  multiline?:    boolean   // true → Enter inserts newline; display uses white-space: pre-line
+  bulletPoints?: boolean   // split on \n and render each segment as a bullet <li>
+  textPrefix?:   string    // display-only prefix prepended to field.text (not stored)
+  onSave:        (id: string, newText: string) => void
+  onHoverStart:  (field: UIField) => void
+  onHoverEnd:    () => void
 }
 
 export function FieldCard({
-  field, label, multiline = false,
+  field, label, multiline = false, bulletPoints = false, textPrefix,
   onSave, onHoverStart, onHoverEnd,
 }: Props) {
   const [isEditing, setIsEditing] = useState(false)
@@ -65,9 +67,12 @@ export function FieldCard({
     e.target.style.height = `${e.target.scrollHeight}px`
   }
 
+  // bulletPoints implies multiline: Enter should insert a newline, not commit.
+  const isMultiline = multiline || bulletPoints
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); return }
-    if (e.key === 'Enter' && !e.shiftKey && !multiline) {
+    if (e.key === 'Enter' && !e.shiftKey && !isMultiline) {
       e.preventDefault()
       commitEdit()
     }
@@ -98,13 +103,20 @@ export function FieldCard({
           onChange={handleChange}
           onBlur={commitEdit}
           onKeyDown={handleKeyDown}
+          spellCheck={false}
         />
+      ) : bulletPoints ? (
+        <ul className="line-bullet-list">
+          {field.text.split('\n').filter(line => line.trim() !== '').map((line, i) => (
+            <li key={i} className="line-text">{line}</li>
+          ))}
+        </ul>
       ) : (
         <p
           className="line-text"
           style={multiline ? { whiteSpace: 'pre-line' } : undefined}
         >
-          {field.text}
+          {textPrefix}{field.text}
         </p>
       )}
     </div>

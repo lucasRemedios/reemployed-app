@@ -504,8 +504,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid var(--c-accent-light);
+  padding-bottom: 0.25rem;
+  /* No border — separation comes from the gap in .resume-lines (above)
+     and the small padding below (between header and first card). */
 }
 
 /* Section-level approve button — solid green in both states; only text/icon differs.
@@ -553,6 +554,11 @@ body {
    Larger than the within-entry card gap to cue the user they are separate items. */
 .resume-entry + .resume-entry {
   margin-top: 0.6rem;
+}
+
+/* Education entries are compact single-line items — sit much closer together. */
+.resume-entry--education + .resume-entry--education {
+  margin-top: 0.2rem;
 }
 
 /* Gap between consecutive individual cards that are direct section children
@@ -659,6 +665,22 @@ body {
   padding: 0;
   margin: 0;
   display: block;
+}
+
+/* ── Experience description bullet list ──────────────────────────────────────── */
+/* Rendered when bulletPoints=true splits description on \n into <li> elements.   */
+.line-bullet-list {
+  margin: 0.05rem 0 0;
+  padding-left: 1.1rem;
+  list-style: disc;
+}
+.line-bullet-list .line-text {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--c-text);
+}
+.line-bullet-list li + li {
+  margin-top: 0.2rem;
 }
 
 /* ── Line action row ──────────────────────────────────────────────────────── */
@@ -1107,4 +1129,67 @@ body {
   border-top: 1px solid var(--c-border-light);
   max-height: 260px;
   overflow-y: auto;
+}
+
+/* ── Research section: plain text (no card chrome) ──────────────────────────── */
+/* Items render as bare lines under the section header — no box, no border.      */
+.research-plain-items .line-card {
+  background: transparent;
+  border: none;
+  border-left: none;
+  border-radius: 0;
+  padding: 0.05rem 0;
+  box-shadow: none;
+}
+.research-plain-items .field-card-label-row {
+  display: none;
+}
+.research-plain-items .line-card:hover:not([data-editing="true"]):not([data-approved="true"]) {
+  background: transparent;
+  border: none;
+  border-left: none;
+  box-shadow: none;
+  cursor: text;
+}
+.research-plain-items .line-card[data-approved="true"],
+.research-plain-items .line-card[data-approved="true"]:hover {
+  background: transparent;
+  border: none;
+  border-left: none;
+}
+
+/* ── Debug panel: copy-all row ──────────────────────────────────────────────── */
+.debug-copy-all-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-bottom: 0.5rem;
+}
+.debug-copy-all-btn {
+  background: var(--c-accent-light);
+  color: var(--c-accent);
+  border: 1px solid var(--c-accent);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.debug-copy-all-btn:hover {
+  background: var(--c-accent);
+  color: #fff;
+}
+
+/* ── Debug panel: parse-failed banner ───────────────────────────────────────── */
+.debug-parse-failed-banner {
+  background: #fff0f0;
+  border: 1px solid #f5a0a0;
+  border-radius: var(--radius-sm);
+  color: #b91c1c;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  padding: 0.4rem 0.75rem;
+  margin-bottom: 0.5rem;
 }

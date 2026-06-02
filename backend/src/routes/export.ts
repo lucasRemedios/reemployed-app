@@ -20,7 +20,6 @@ import {
   Paragraph,
   TextRun,
   AlignmentType,
-  BorderStyle,
   LevelFormat,
   LineRuleType,
 } from 'docx'
@@ -96,7 +95,7 @@ function sectionHeader(title: string, size: number): Paragraph {
   return new Paragraph({
     children: [new TextRun({ text: title.toUpperCase(), bold: true, size, color: '2E2E2E', font: BODY_FONT })],
     spacing: { before: 240, after: 80 },
-    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: 'AAAAAA', space: 4 } },
+    // No border — vertical spacing alone separates sections
   })
 }
 
@@ -201,23 +200,19 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
     }))
   }
 
-  // Links line: website · linkedin · github · googleScholar
-  const linksLine = join(personalDetails.website, personalDetails.linkedin, personalDetails.github, personalDetails.googleScholar)
+  // Links line: website · linkedin · github · "Google Scholar: {value}"
+  // Google Scholar may be a name or URL — always label it for clarity.
+  const scholarFormatted = personalDetails.googleScholar.trim()
+    ? `Google Scholar: ${personalDetails.googleScholar.trim()}`
+    : ''
+  const linksLine = join(personalDetails.website, personalDetails.linkedin, personalDetails.github, scholarFormatted)
   if (linksLine) {
     children.push(new Paragraph({
       children: [new TextRun({ text: linksLine, size: 20, color: '666666', font: BODY_FONT })],
       alignment: AlignmentType.CENTER,
-      spacing:   { before: 0, after: 160 },
+      spacing:   { before: 0, after: 240 },
     }))
   }
-
-  // Full-width horizontal rule
-  children.push(new Paragraph({
-    children: [],
-    indent:   { left: 0, right: 0 },
-    border:   { bottom: { style: BorderStyle.SINGLE, size: 6, color: '2E2E2E', space: 1 } },
-    spacing:  { after: 160 },
-  }))
 
   // ── Summary ─────────────────────────────────────────────────────────────────
   if (summary.trim()) {
@@ -274,8 +269,11 @@ export async function exportHandler(req: Request, res: Response): Promise<void> 
         children.push(entryHeader(degreeTitle || degreeRest, degreeTitle ? degreeRest : '', bodySize))
       }
 
-      // Advisor and details as plain lines
-      const subLines = [e.advisor.trim(), e.details.trim()].filter(Boolean)
+      // Advisor and details as plain lines; advisor prefixed for readability
+      const subLines = [
+        e.advisor.trim() ? `Advisor: ${e.advisor.trim()}` : '',
+        e.details.trim(),
+      ].filter(Boolean)
       subLines.forEach((line, li) => {
         const isLast = isLastEntry && li === subLines.length - 1
         children.push(bodyParagraph(line, isLast ? SECTION_END : BODY_SPACING, bodySize))

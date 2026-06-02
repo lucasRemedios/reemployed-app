@@ -7,16 +7,16 @@
 // See prompts.ts and frontend/src/types.ts for the field-level contract.
 
 import { Request, Response } from 'express'
-import { callLLMDetailed } from '../llmClient'
+import { callLLMDetailed, callSingleStageDetailed, MODEL_CONTEXT_LIMITS } from '../llmClient'
 import type { LLMCallResult } from '../llmClient'
 import { getSupabase } from '../supabaseClient'
-import { STAGE_1_SYSTEM, STAGE_1_USER, STAGE_2_SYSTEM, STAGE_2_USER } from '../prompts'
+import { STAGE_1_SYSTEM, STAGE_1_USER, STAGE_2_SYSTEM, STAGE_2_USER, getSingleStageSystem, SINGLE_STAGE_USER } from '../prompts'
 
 // ── Debug info shape ───────────────────────────────────────────────────────────
 // Only attached to the response when DEBUG_LLM=true or ?debug=1 is present.
 
 type StageDebugInfo = {
-  stage:          1 | 2
+  stage:          1 | 2 | 'single'
   model:          string
   systemPrompt:   string
   userMessage:    string
@@ -25,6 +25,7 @@ type StageDebugInfo = {
   parseError:     string | null
   latencyMs:      number
   tokenUsage:     LLMCallResult['usage'] | null
+  contextWindow?: number   // total context limit for this model (input + output)
 }
 
 const MAX_JOB_WORDS        = 5_000
@@ -48,16 +49,18 @@ function parseJson(raw: string): unknown {
 // ── Stage 1 validator ──────────────────────────────────────────────────────────
 
 function isPositioningStrategy(obj: unknown): obj is {
-  roleArchetype: string
-  whatRoleValues: string[]
-  fitAssessment: string
-  gaps: string[]
+  roleArchetype:    string
+  whatRoleValues:   string[]
+  hardRequirements: string[]
+  fitAssessment:    string
+  gaps:             string[]
 } {
   if (typeof obj !== 'object' || obj === null) return false
   const o = obj as Record<string, unknown>
   return (
     typeof o.roleArchetype === 'string' &&
     Array.isArray(o.whatRoleValues) &&
+    Array.isArray(o.hardRequirements) &&
     typeof o.fitAssessment === 'string' &&
     Array.isArray(o.gaps)
   )
@@ -218,6 +221,104 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
   const debugMode   = process.env.DEBUG_LLM === 'true' || req.query.debug === '1'
   const debugStages: StageDebugInfo[] = []
 
+  // ── Mode selection ─────────────────────────────────────────────────────────
+  // TAILOR_MODE=single (env) or ?mode=single (query param) → single-stage path.
+  // Default: two_stage. The two-stage path is never touched by this branch.
+  const mode = (process.env.TAILOR_MODE === 'single' || req.query.mode === 'single')
+    ? 'single' : 'two_stage'
+
+  // ── Single-stage path ──────────────────────────────────────────────────────
+  if (mode === 'single') {
+    console.log('[tailor] Single-stage mode: one LLM call, internal analysis')
+
+    // Hoist raw result outside try so the catch block can always push it to debug.
+    let ssRaw:    LLMCallResult | null = null
+    let ssSystem  = ''
+    let ssUser    = ''
+    let ssMs      = 0
+
+    try {
+      ssSystem  = getSingleStageSystem()
+      ssUser    = SINGLE_STAGE_USER(jobPosting, candidateBackground)
+      const ssStart = Date.now()
+      ssRaw     = await callSingleStageDetailed(ssSystem, ssUser)
+      ssMs      = Date.now() - ssStart
+
+      // ── Token budget log ─────────────────────────────────────────────────
+      if (ssRaw.usage) {
+        const { promptTokens, completionTokens, totalTokens } = ssRaw.usage
+        const limit = MODEL_CONTEXT_LIMITS[ssRaw.model]
+        const pct   = limit
+          ? ` — ${Math.round(totalTokens / limit * 100)}% of ${limit.toLocaleString()} ctx limit`
+          : ''
+        console.log(
+          `[tailor] Single-stage tokens: ` +
+          `${promptTokens.toLocaleString()} in + ${completionTokens.toLocaleString()} out ` +
+          `= ${totalTokens.toLocaleString()} total${pct}`
+        )
+      }
+
+      const ssParsed = parseJson(ssRaw.content) as Record<string, unknown>
+
+      const personalDetails = parsePersonalDetails(ssParsed.personalDetails)
+      const summary         = parseSummary(ssParsed.summary)
+      const experience      = parseExperience(ssParsed.experience)
+      const education       = parseEducation(ssParsed.education)
+      const research        = parseTextItems(ssParsed.research)
+      const skills          = parseTextItems(ssParsed.skills)
+      const additional      = parseAdditional(ssParsed.additional)
+
+      console.log(
+        `[tailor] Single-stage complete.` +
+        ` | name: "${personalDetails.name || '(none)'}"` +
+        ` | experience: ${experience.length}` +
+        ` | education: ${education.length}`
+      )
+
+      const resume = { personalDetails, summary, experience, education, research, skills, additional }
+
+      if (debugMode) debugStages.push({
+        stage: 'single', model: ssRaw.model,
+        systemPrompt: ssSystem, userMessage: ssUser,
+        rawResponse: ssRaw.content,
+        // Pass full ssParsed (including backgroundNeutralized) to the debug panel;
+        // the resume object intentionally excludes it.
+        parsedResponse: ssParsed,
+        parseError: null,
+        latencyMs: ssMs, tokenUsage: ssRaw.usage ?? null,
+        contextWindow: MODEL_CONTEXT_LIMITS[ssRaw.model],
+      })
+
+      res.json({
+        resume,
+        generatedAt: new Date().toISOString(),
+        ...(debugMode ? { debug: debugStages } : {}),
+      })
+
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      console.error('[tailor] Single-stage error:', message)
+
+      // Always push raw response to debug — never suppress it on failure.
+      if (debugMode && ssRaw) {
+        debugStages.push({
+          stage: 'single', model: ssRaw.model,
+          systemPrompt: ssSystem, userMessage: ssUser,
+          rawResponse: ssRaw.content, parsedResponse: null,
+          parseError: message,
+          latencyMs: ssMs, tokenUsage: ssRaw.usage ?? null,
+          contextWindow: MODEL_CONTEXT_LIMITS[ssRaw.model],
+        })
+      }
+
+      res.status(500).json({
+        error: message,
+        ...(debugMode && debugStages.length > 0 ? { debug: debugStages } : {}),
+      })
+    }
+    return
+  }
+
   try {
     // ── Stage 1 ────────────────────────────────────────────────────────────────
     console.log('[tailor] Stage 1: analysing job posting…')
@@ -227,10 +328,22 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
     const s1Result = await callLLMDetailed(s1System, s1User)
     const s1Ms     = Date.now() - s1Start
 
-    const stage1Parsed = parseJson(s1Result.content)
-
-    if (!isPositioningStrategy(stage1Parsed)) {
-      throw new Error('Stage 1 response did not match the expected structure.')
+    let stage1Parsed: ReturnType<typeof parseJson>
+    try {
+      stage1Parsed = parseJson(s1Result.content)
+      if (!isPositioningStrategy(stage1Parsed)) {
+        throw new Error('Stage 1 response did not match the expected structure.')
+      }
+    } catch (e) {
+      if (debugMode) debugStages.push({
+        stage: 1, model: s1Result.model,
+        systemPrompt: s1System, userMessage: s1User,
+        rawResponse: s1Result.content, parsedResponse: null,
+        parseError: e instanceof Error ? e.message : 'Parse failed',
+        latencyMs: s1Ms, tokenUsage: s1Result.usage ?? null,
+        contextWindow: MODEL_CONTEXT_LIMITS[s1Result.model],
+      })
+      throw e
     }
     console.log('[tailor] Stage 1 complete. Archetype:', stage1Parsed.roleArchetype)
 
@@ -239,6 +352,7 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
       systemPrompt: s1System, userMessage: s1User,
       rawResponse: s1Result.content, parsedResponse: stage1Parsed, parseError: null,
       latencyMs: s1Ms, tokenUsage: s1Result.usage ?? null,
+      contextWindow: MODEL_CONTEXT_LIMITS[s1Result.model],
     })
 
     // ── Stage 2 ────────────────────────────────────────────────────────────────
@@ -250,7 +364,20 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
     const s2Result = await callLLMDetailed(s2System, s2User)
     const s2Ms     = Date.now() - s2Start
 
-    const stage2Parsed = parseJson(s2Result.content) as Record<string, unknown>
+    let stage2Parsed: Record<string, unknown>
+    try {
+      stage2Parsed = parseJson(s2Result.content) as Record<string, unknown>
+    } catch (e) {
+      if (debugMode) debugStages.push({
+        stage: 2, model: s2Result.model,
+        systemPrompt: s2System, userMessage: s2User,
+        rawResponse: s2Result.content, parsedResponse: null,
+        parseError: e instanceof Error ? e.message : 'Parse failed',
+        latencyMs: s2Ms, tokenUsage: s2Result.usage ?? null,
+        contextWindow: MODEL_CONTEXT_LIMITS[s2Result.model],
+      })
+      throw e
+    }
 
     const personalDetails = parsePersonalDetails(stage2Parsed.personalDetails)
     const summary         = parseSummary(stage2Parsed.summary)
@@ -274,6 +401,7 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
       systemPrompt: s2System, userMessage: s2User,
       rawResponse: s2Result.content, parsedResponse: resume, parseError: null,
       latencyMs: s2Ms, tokenUsage: s2Result.usage ?? null,
+      contextWindow: MODEL_CONTEXT_LIMITS[s2Result.model],
     })
 
     // ── Persist to DB (authenticated requests only) ────────────────────────────
@@ -311,6 +439,9 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     console.error('[tailor] Pipeline error:', message)
-    res.status(500).json({ error: message })
+    res.status(500).json({
+      error: message,
+      ...(debugMode && debugStages.length > 0 ? { debug: debugStages } : {}),
+    })
   }
 }
