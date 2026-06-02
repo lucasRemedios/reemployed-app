@@ -99,7 +99,7 @@ export async function callSingleStageDetailed(
       { role: 'system', content: systemPrompt },
       { role: 'user',   content: userMessage  },
     ],
-    max_tokens: 4000,   // prevent mid-JSON truncation on longer inputs
+    max_tokens: 8000,   // headroom for verbose backgroundNeutralized + full resume JSON
   })
 
   const content = completion.choices[0]?.message?.content

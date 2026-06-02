@@ -50,9 +50,19 @@ function sanitizeJsonString(s: string): string {
     const ch = s[i]
     if (inString) {
       if (ch === '\\') {
-        // Escaped character — copy both chars and skip
-        result += ch + (s[i + 1] ?? '')
-        i += 2
+        const next = s[i + 1] ?? ''
+        if (next === '\n') {
+          // Model output `\` + literal newline — convert to proper \n escape
+          result += '\\n'
+          i += 2
+        } else if (next === '\r') {
+          result += '\\r'
+          i += 2
+        } else {
+          // Normal escape sequence — copy both chars unchanged
+          result += ch + next
+          i += 2
+        }
         continue
       } else if (ch === '"') {
         inString = false
@@ -84,7 +94,9 @@ function parseJson(raw: string): unknown {
     try {
       return JSON.parse(sanitizeJsonString(stripped))
     } catch {
-      console.error('[tailor] JSON parse failed. Raw response:\n', raw)
+      const len = raw.length
+      const lastChars = raw.slice(-80).replace(/\n/g, '↵')
+      console.error(`[tailor] JSON parse failed (both passes). Response length: ${len} chars. Last 80 chars: "${lastChars}"`)
       throw new Error('The model returned a response that could not be parsed as JSON.')
     }
   }
