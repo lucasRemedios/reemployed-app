@@ -10,7 +10,7 @@
 // Approve-all gate:
 //   Only non-empty fields count. Empty fields (text === '') are always skipped.
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { TextareaField }         from './components/TextareaField'
 import type { TextareaFieldHandle } from './components/TextareaField'
 import { ResumeColumn }          from './components/ResumeColumn'
@@ -216,21 +216,71 @@ function buildExportBody(data: UIResumeData, estimatedPages: number) {
 
 const MAX_JOB_WORDS        = 2_000
 const MAX_BACKGROUND_WORDS = 2_000
+const TOKEN_BUDGET_LIMIT   = 200_000
 
 // Shown instead of raw server errors for 5xx / parse failures.
 const FRIENDLY_ERROR = "Something went wrong. Please try again.\nIf it persists, try shortening your inputs."
 
+// Format a seconds count as "1h 23m 44s" / "23m 44s" / "44s"
+function formatCountdown(secs: number): string {
+  const h = Math.floor(secs / 3600)
+  const m = Math.floor((secs % 3600) / 60)
+  const s = secs % 60
+  if (h > 0) return `${h}h ${m}m ${s}s`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
+}
+
+// Format token count as "143K" or "1.4K" or "999"
+function formatTokens(n: number): string {
+  if (n >= 10_000) return `${Math.round(n / 1_000)}K`
+  if (n >= 1_000)  return `${(n / 1_000).toFixed(1)}K`
+  return n.toLocaleString()
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [jobPosting,   setJobPosting]  = useState(SAMPLE_JOB_POSTING)
-  const [background,   setBackground]  = useState(SAMPLE_BACKGROUND)
-  const [resumeData,   setResumeData]  = useState<UIResumeData | null>(SAMPLE_RESUME_DATA)
-  const [status,       setStatus]      = useState<AppStatus>({ kind: 'idle' })
-  const [hasTailored,  setHasTailored] = useState(false)
-  const [debugData,    setDebugData]   = useState<StageDebugInfo[] | null>(null)
+  const [jobPosting,    setJobPosting]   = useState(SAMPLE_JOB_POSTING)
+  const [background,    setBackground]   = useState(SAMPLE_BACKGROUND)
+  const [resumeData,    setResumeData]   = useState<UIResumeData | null>(SAMPLE_RESUME_DATA)
+  const [status,        setStatus]       = useState<AppStatus>({ kind: 'idle' })
+  const [hasTailored,   setHasTailored]  = useState(false)
+  const [debugData,     setDebugData]    = useState<StageDebugInfo[] | null>(null)
+  const [tokenBudget,   setTokenBudget]  = useState<number | null>(null)
+  const [countdownSecs, setCountdownSecs] = useState<number | null>(null)
+
   const jobPostingFieldRef = useRef<TextareaFieldHandle>(null)
   const backgroundFieldRef = useRef<TextareaFieldHandle>(null)
+
+  // ── Token budget ──────────────────────────────────────────────────────────
+  const fetchTokenBudget = useCallback(async () => {
+    try {
+      const res = await fetch('/api/token-budget')
+      if (!res.ok) return
+      const data = await res.json() as { remaining: number | null }
+      if (typeof data.remaining === 'number') setTokenBudget(data.remaining)
+    } catch { /* non-critical */ }
+  }, [])
+
+  useEffect(() => { fetchTokenBudget() }, [fetchTokenBudget])
+
+  // ── Rate-limit countdown ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!countdownSecs || countdownSecs <= 0) {
+      if (countdownSecs === 0) {
+        setCountdownSecs(null)
+        setStatus({ kind: 'idle' })
+      }
+      return
+    }
+    const timer = setTimeout(() => {
+      const next = countdownSecs - 1
+      setCountdownSecs(next)
+      setStatus({ kind: 'error', message: `Rate limit reached. Try again in ${formatCountdown(next)}.` })
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [countdownSecs])
 
   function handleFieldHover(field: UIField | null) {
     jobPostingFieldRef.current?.setHighlight(field?.postingReference  ?? null)
@@ -286,6 +336,17 @@ export default function App() {
       }
 
       if (!response.ok) {
+        if (response.status === 429) {
+          // Rate limit — surface wait time and start countdown
+          const waitSecs   = typeof data.waitSeconds === 'number' ? data.waitSeconds : null
+          const waitDisplay = typeof data.waitDisplay === 'string' ? data.waitDisplay : null
+          const msg = waitDisplay
+            ? `Rate limit reached. Try again in ${formatCountdown(waitSecs ?? 0)}.`
+            : 'Rate limit reached. Please try again later.'
+          setStatus({ kind: 'error', message: msg })
+          if (waitSecs && waitSecs > 0) setCountdownSecs(waitSecs)
+          return
+        }
         // 5xx (parse failure, timeout, etc.) → friendly retry message.
         // 4xx (word count exceeded, missing field) → server's specific message.
         const msg = response.status >= 500
@@ -298,6 +359,7 @@ export default function App() {
       setResumeData(convertApiToUIData(resume))
       setDebugData(Array.isArray(data.debug) ? data.debug as StageDebugInfo[] : null)
       setStatus({ kind: 'done' })
+      fetchTokenBudget()  // refresh budget display after a successful call
 
     } catch (err) {
       const message = err instanceof Error ? err.message : FRIENDLY_ERROR
@@ -389,7 +451,7 @@ export default function App() {
             </p>
           </div>
 
-          {/* Center: error + optional retry + Tailor button */}
+          {/* Center: error + Tailor button (countdown baked into button when rate-limited) */}
           <div className="app-header-center">
             <p className="header-error" aria-live="polite">
               {status.kind === 'error' ? status.message : ''}
@@ -397,16 +459,27 @@ export default function App() {
             <button
               className="tailor-button"
               onClick={handleTailorClick}
-              disabled={isLoading}
+              disabled={isLoading || !!countdownSecs}
             >
               {isLoading && <span className="button-spinner" aria-hidden />}
-              {isLoading ? 'Tailoring your resume…' : hasTailored ? 'Re-Tailor Resume' : 'Tailor Resume'}
-              {!isLoading && <span className="button-arrow" aria-hidden>→</span>}
+              {countdownSecs
+                ? `Rate limited — retry in ${formatCountdown(countdownSecs)}`
+                : isLoading
+                  ? 'Tailoring your resume…'
+                  : hasTailored ? 'Re-Tailor Resume' : 'Tailor Resume'}
+              {!isLoading && !countdownSecs && <span className="button-arrow" aria-hidden>→</span>}
             </button>
           </div>
 
-          {/* Right: empty spacer so center stays truly centered */}
-          <div className="app-header-right" aria-hidden="true" />
+          {/* Right: token budget indicator */}
+          <div className="app-header-right">
+            {tokenBudget !== null && (
+              <div className="token-budget" title={`${tokenBudget.toLocaleString()} / ${TOKEN_BUDGET_LIMIT.toLocaleString()} tokens remaining today`}>
+                <span className="token-budget-label">LLM budget</span>
+                <span className="token-budget-value">{formatTokens(tokenBudget)} / 200K today</span>
+              </div>
+            )}
+          </div>
 
         </div>
       </header>

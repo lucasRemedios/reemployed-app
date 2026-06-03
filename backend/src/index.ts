@@ -6,9 +6,10 @@ import './config'
 
 import express    from 'express'
 import cors       from 'cors'
-import { tailorHandler }  from './routes/tailor'
-import { exportHandler }  from './routes/export'
-import { optionalAuth }   from './middleware/auth'
+import { tailorHandler }         from './routes/tailor'
+import { exportHandler }         from './routes/export'
+import { optionalAuth }          from './middleware/auth'
+import { getTokenBudgetRemaining } from './llmClient'
 
 const app  = express()
 const PORT = process.env.PORT ?? 3001
@@ -33,6 +34,12 @@ app.post('/api/tailor',  optionalAuth, tailorHandler)
 
 // Export: approved lines → .docx file download
 app.post('/api/export',  exportHandler)
+
+// Token budget: last-known remaining TPD tokens from Groq rate-limit headers.
+// Updated in-memory after each LLM call; null until the first call completes.
+app.get('/api/token-budget', (_req, res) => {
+  res.json({ remaining: getTokenBudgetRemaining(), limit: 200_000 })
+})
 
 // ── Start ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {

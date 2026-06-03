@@ -8,6 +8,7 @@
 //   callLLM(system, user)               → Promise<string>         (two-stage)
 //   callLLMDetailed(system, user)       → Promise<LLMCallResult>  (two-stage)
 //   callSingleStageDetailed(system, user) → Promise<LLMCallResult> (single-stage)
+//   getTokenBudgetRemaining()           → number | null           (in-memory TPD budget)
 
 import Groq from 'groq-sdk'
 
@@ -16,11 +17,32 @@ import Groq from 'groq-sdk'
 export const MODEL_CONTEXT_LIMITS: Record<string, number> = {
   'llama-3.3-70b-versatile': 128_000,
   'llama-3.1-8b-instant':    131_072,
-  'openai/gpt-oss-120b':     131_072,  // TODO: verify at console.groq.com/docs/rate-limits
+  'openai/gpt-oss-120b':     131_072,
 }
 
-// Lazy singleton — created on first call, not at import time, so dotenv.config()
-// in config.ts has already run before process.env is read.
+// ── In-memory token budget ────────────────────────────────────────────────────
+// Updated from the x-ratelimit-remaining-tokens response header after each call.
+// Shared across all requests in this server process (good enough for a single
+// demo instance; a real multi-worker setup would need Redis or similar).
+let _tokenBudgetRemaining: number | null = null
+
+export function getTokenBudgetRemaining(): number | null {
+  return _tokenBudgetRemaining
+}
+
+function captureTokenBudget(headers: Headers): void {
+  const raw = headers.get('x-ratelimit-remaining-tokens')
+  if (raw !== null) {
+    const val = parseInt(raw, 10)
+    if (!isNaN(val)) {
+      _tokenBudgetRemaining = val
+      console.log(`[llmClient] TPD remaining: ${val.toLocaleString()} tokens`)
+    }
+  }
+}
+
+// ── Groq client singleton ─────────────────────────────────────────────────────
+
 let _client: Groq | null = null
 
 function getClient(): Groq {
@@ -43,7 +65,8 @@ export type LLMCallResult = {
   }
 }
 
-// Two-stage pipeline — uses GROQ_MODEL, response_format json_object, temp 0.3.
+// ── Two-stage pipeline ────────────────────────────────────────────────────────
+// Uses GROQ_MODEL, response_format json_object, temp 0.3.
 export async function callLLMDetailed(
   systemPrompt: string,
   userMessage:  string,
@@ -52,7 +75,7 @@ export async function callLLMDetailed(
   const MODEL  = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile'
   console.log(`[llmClient] Calling ${MODEL} | system: ${systemPrompt.length} chars | user: ${userMessage.length} chars`)
 
-  const completion = await client.chat.completions.create({
+  const { data: completion, response } = await client.chat.completions.create({
     model: MODEL,
     messages: [
       { role: 'system', content: systemPrompt },
@@ -60,7 +83,9 @@ export async function callLLMDetailed(
     ],
     response_format: { type: 'json_object' },
     temperature: 0.3,
-  })
+  }).withResponse()
+
+  captureTokenBudget(response.headers)
 
   const content = completion.choices[0]?.message?.content
   if (!content) throw new Error('Groq returned an empty response')
@@ -82,9 +107,9 @@ export async function callLLM(systemPrompt: string, userMessage: string): Promis
   return (await callLLMDetailed(systemPrompt, userMessage)).content
 }
 
-// Single-stage pipeline — uses SINGLE_STAGE_MODEL via the same Groq key.
-// No response_format or temperature: reasoning models (openai/gpt-oss-120b)
-// may not support them; JSON output is enforced by the prompt alone.
+// ── Single-stage pipeline ─────────────────────────────────────────────────────
+// Uses SINGLE_STAGE_MODEL. No response_format or temperature so reasoning models
+// are supported; JSON output is enforced by the prompt alone.
 export async function callSingleStageDetailed(
   systemPrompt: string,
   userMessage:  string,
@@ -93,14 +118,16 @@ export async function callSingleStageDetailed(
   const MODEL  = process.env.SINGLE_STAGE_MODEL ?? 'openai/gpt-oss-120b'
   console.log(`[llmClient] Single-stage calling ${MODEL} | system: ${systemPrompt.length} chars | user: ${userMessage.length} chars`)
 
-  const completion = await client.chat.completions.create({
+  const { data: completion, response } = await client.chat.completions.create({
     model:      MODEL,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user',   content: userMessage  },
     ],
     max_tokens: 8000,   // headroom for verbose backgroundNeutralized + full resume JSON
-  })
+  }).withResponse()
+
+  captureTokenBudget(response.headers)
 
   const content = completion.choices[0]?.message?.content
   if (!content) throw new Error('Groq returned an empty response (single-stage)')

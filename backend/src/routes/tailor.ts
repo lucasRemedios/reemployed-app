@@ -7,6 +7,7 @@
 // See prompts.ts and frontend/src/types.ts for the field-level contract.
 
 import { Request, Response } from 'express'
+import { RateLimitError } from 'groq-sdk'
 import { callLLMDetailed, callSingleStageDetailed, MODEL_CONTEXT_LIMITS } from '../llmClient'
 import type { LLMCallResult } from '../llmClient'
 import { getSupabase } from '../supabaseClient'
@@ -33,6 +34,22 @@ const MAX_BACKGROUND_WORDS = 2_000
 
 function countWords(text: string): number {
   return text.trim() === '' ? 0 : text.trim().split(/\s+/).length
+}
+
+// Extract the wait duration from a Groq rate-limit error message.
+// Groq format: "…Please try again in 1h 30m 45s. Visit…"
+function parseWaitTime(errMessage: string): { display: string | null; seconds: number | null } {
+  const match = errMessage.match(/please try again in ([^.]+)/i)
+  if (!match) return { display: null, seconds: null }
+  const display = match[1].trim()
+  const h = display.match(/(\d+)\s*h/)
+  const m = display.match(/(\d+)\s*m/)
+  const s = display.match(/(\d+)\s*s/)
+  const seconds =
+    (h ? parseInt(h[1], 10) * 3600 : 0) +
+    (m ? parseInt(m[1], 10) * 60   : 0) +
+    (s ? parseInt(s[1], 10)         : 0)
+  return { display, seconds: seconds > 0 ? seconds : null }
 }
 
 // Strip markdown code fences if the model wraps its JSON in ```json … ```.
@@ -367,6 +384,21 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
         })
       }
 
+      // 429 rate-limit — surface wait time to the client instead of a generic 500.
+      if (err instanceof RateLimitError) {
+        const { display, seconds } = parseWaitTime(message)
+        console.warn(`[tailor] Rate limit hit. Wait: ${display ?? 'unknown'}`)
+        res.status(429).json({
+          error: display
+            ? `Rate limit reached. Please try again in ${display}.`
+            : 'Rate limit reached. Please try again later.',
+          waitDisplay: display,
+          waitSeconds: seconds,
+          ...(debugMode && debugStages.length > 0 ? { debug: debugStages } : {}),
+        })
+        return
+      }
+
       res.status(500).json({
         error: message,
         ...(debugMode && debugStages.length > 0 ? { debug: debugStages } : {}),
@@ -495,6 +527,21 @@ export async function tailorHandler(req: Request, res: Response): Promise<void> 
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     console.error('[tailor] Pipeline error:', message)
+
+    if (err instanceof RateLimitError) {
+      const { display, seconds } = parseWaitTime(message)
+      console.warn(`[tailor] Rate limit hit. Wait: ${display ?? 'unknown'}`)
+      res.status(429).json({
+        error: display
+          ? `Rate limit reached. Please try again in ${display}.`
+          : 'Rate limit reached. Please try again later.',
+        waitDisplay: display,
+        waitSeconds: seconds,
+        ...(debugMode && debugStages.length > 0 ? { debug: debugStages } : {}),
+      })
+      return
+    }
+
     res.status(500).json({
       error: message,
       ...(debugMode && debugStages.length > 0 ? { debug: debugStages } : {}),
